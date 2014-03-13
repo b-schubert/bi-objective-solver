@@ -13,12 +13,11 @@ class Solution(object):
         self.objs = tuple(objs)
         self.vars = vars
 
-
     def __eq__(self, solution):
         """
             compare function with other solution
         """
-        return numpy.allclose(self.objs, solution)
+        return numpy.allclose(self.objs, solution.objs)
 
     def __lt__(self, solution):
         """
