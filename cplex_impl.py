@@ -7,11 +7,6 @@ from algorithms.BiDirectionalEpsilonConstraint import DoubleEpsilonConstraintSol
 from algorithms.EpsilonConstraint import EpsilonConstraintSolver
 from algorithms.RectangleSplitting import RectangleSplittingSolver
 
-#lp1 = sys.argv[1]
-#lp2 = sys.argv[2]
-
-#z1 = cplex.Cplex(lp1)
-#z2 = cplex.Cplex(lp2)
 
 def rectangle():
     lp1 = sys.argv[1]
@@ -19,8 +14,9 @@ def rectangle():
 
     z1 = cplex.Cplex(lp1)
     z2 = cplex.Cplex(lp2)
-    rectangle = RectangleSplittingSolver(z1, z2, ["energy_cons", "immu_cons"], ["x", "y"])
+    rectangle = RectangleSplittingSolver(z1, z2,  ["x", "y"])
     return rectangle.solve()
+
 
 def epsilon():
     lp1 = sys.argv[1]
@@ -28,8 +24,9 @@ def epsilon():
 
     z1 = cplex.Cplex(lp1)
     z2 = cplex.Cplex(lp2)
-    rectangle = EpsilonConstraintSolver(z1, z2, ["energy_cons", "immu_cons"], ["x", "y"])
+    rectangle = EpsilonConstraintSolver(z1, z2,  ["x", "y"])
     return rectangle.solve()
+
 
 def double_epsilon():
     lp1 = sys.argv[1]
@@ -37,40 +34,16 @@ def double_epsilon():
 
     z1 = cplex.Cplex(lp1)
     z2 = cplex.Cplex(lp2)
-    rectangle = DoubleEpsilonConstraintSolver(z1, z2, ["energy_cons", "immu_cons"], ["x", "y"])
+    rectangle = DoubleEpsilonConstraintSolver(z1, z2,  ["x", "y"])
     return rectangle.solve()
 
-#def concurrent_rectangle_direct():
-#    m =RectangleSplittingManager_directSplit(sys.argv[1], sys.argv[2], ["energy_cons", "immu_cons"], ["x", "y"], 4)
-#    return m.solve()
     
 def concurrent_rectangle():
-    m = RectangleSplittingManager(sys.argv[1], sys.argv[2], ["energy_cons", "immu_cons"], ["x", "y"], 4)
+    m = RectangleSplittingManager(sys.argv[1], sys.argv[2],  ["x", "y"], 4)
     return m.solve()
 
 
-#def concurrent_rectanlge_old():
-#    m = RectangleSplittingManagerOld(sys.argv[1], sys.argv[2], ["energy_cons", "immu_cons"], ["x", "y"], 4)
-#    return m.solve()
-
-
 if __name__ == "__main__":
-    #t=timeit.Timer("double_epsilon()", setup="from __main__ import double_epsilon")
-    #print t.timeit(number=3)
-
-    #cProfile.run("concurrent_rectangle()")
-
-    #sys.exit()
-
-   
-
-    #t = time.time()
-    #sols = concurrent_rectangle_direct()
-    #e = time.time()
-    #print "Concurrent New direct split Rectangle Runtime: ", e-t
-    #for s in sols:
-    #    #print s.vars
-    #    print s.objs
 
 
     t = time.time()

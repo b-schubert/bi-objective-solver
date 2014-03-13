@@ -16,7 +16,7 @@ class BiobjectiveSolver(object):
     EPS = 1e-2
     #EPS = 1
 
-    def __init__(self, z1, z2, biob_constraints, interesting_vars):
+    def __init__(self, z1, z2, interesting_vars):
         """
             initializes the solver model and
              modifies the given cplex model
@@ -27,8 +27,6 @@ class BiobjectiveSolver(object):
                     should be only two!
              @param interesting_vars: list of variable names of the model which a user is interested in
         """
-        assert len(biob_constraints) == 2
-        #debug
         z1.set_results_stream(None)
         z2.set_results_stream(None)
 
