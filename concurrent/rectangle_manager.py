@@ -9,7 +9,7 @@
 import cplex
 import heapq
 import multiprocessing as mp
-from single.multiobjective_cplex import *
+from algorithms.NormalConstraint import *
 from rectangle_worker import RectangleSplittingWorker
 
 from utility.Hypervolume import HyperVolume

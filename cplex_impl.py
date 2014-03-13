@@ -2,10 +2,10 @@ import sys
 import time
 
 import cplex
-#from concurrent.concurrent_multiprocessing_cplex_old import *
 from concurrent.rectangle_manager import RectangleSplittingManager
-from single.multiobjective_cplex import *
-
+from algorithms.BiDirectionalEpsilonConstraint import DoubleEpsilonConstraintSolver
+from algorithms.EpsilonConstraint import EpsilonConstraintSolver
+from algorithms.RectangleSplitting import RectangleSplittingSolver
 
 #lp1 = sys.argv[1]
 #lp2 = sys.argv[2]
