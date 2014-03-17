@@ -37,20 +37,20 @@ class RectangleSplittingSolver(BiobjectiveSolver):
             #spann the rectangle
             rectangle = (z_t.objs, z_b.objs)
             #print "Start Rectangle: ",rectangle
-            heapq.heappush(pq, (-RectangleSplittingSolver._calculate_rectangle_area(rectangle), rectangle, r_b))
+            heapq.heappush(pq, (-RectangleSplittingSolver._calculate_rectangle_area(rectangle), rectangle, r_t, r_b))
             self._solutions.append(z_t)
             self._solutions.append(z_b)
 
             while pq:
 
-                area, b, warmstart = heapq.heappop(pq)
+                area, b, warm_t, warm_b = heapq.heappop(pq)
                 print "\n\nCurrent Rectangle: ",b,"\n\n"
                 rec_b = 0.5*(b[0][1]+b[1][1])
 
                 #print "Current Box: ", b
 
                 #search for new points in lower split
-                z1_hat, r1_hat = self._lexmin(0, 1, rec_b, warmstart=warmstart)
+                z1_hat, r1_hat = self._lexmin(0, 1, rec_b, warmstart=warm_b)
                 if not numpy.allclose(z1_hat.objs, b[1]):
 
                     #if found point is the same as initial point spanning the rectangle
@@ -59,13 +59,13 @@ class RectangleSplittingSolver(BiobjectiveSolver):
                     #print "r1_hat ", z1_hat
                     rec1_hat = (z1_hat.objs, b[1])
                     self._solutions.append(z1_hat)
-                    heapq.heappush(pq, (-RectangleSplittingSolver._calculate_rectangle_area(rec1_hat), rec1_hat, warmstart))
+                    heapq.heappush(pq, (-RectangleSplittingSolver._calculate_rectangle_area(rec1_hat), rec1_hat, r1_hat, warm_b))
 
                 #split the rectangle in vertical direction based on the new found point
                 #and search in the upper half for new pareto points
                 rec_t = z1_hat.objs[0]-BiobjectiveSolver.EPS
-                z2_hat, r2_hat = self._lexmin(1, 0, rec_t, warmstart=r1_hat,
-                                              effort_level=4)
+                z2_hat, r2_hat = self._lexmin(1, 0, rec_t, warmstart=warm_t,
+                                              effort_level=0)
                 if not numpy.allclose(z2_hat.objs, b[0]):
 
                     #again if the found point is the already known edge point
@@ -73,7 +73,8 @@ class RectangleSplittingSolver(BiobjectiveSolver):
                     #print "r2_hat ", z2_hat
                     rec2_hat = (b[0], z2_hat.objs)
                     self._solutions.append(z2_hat)
-                    heapq.heappush(pq, (-RectangleSplittingSolver._calculate_rectangle_area(rec2_hat), rec2_hat, r2_hat))
+                    heapq.heappush(pq, (-RectangleSplittingSolver._calculate_rectangle_area(rec2_hat),
+                                        rec2_hat, warm_t, r2_hat))
         except CplexError, exc:
             print exc
             return
@@ -116,12 +117,12 @@ class RectangleSplittingSolver(BiobjectiveSolver):
             init_rectangle = (z_t.objs, z_b.objs)
             #print "Start Rectangle: ",rectangle
             heapq.heappush(pq, (-RectangleSplittingSolver._calculate_rectangle_area(init_rectangle),
-                                init_rectangle, r_b))
+                                init_rectangle, r_t, r_b))
             heapq.heappush(self._solutions, z_t)
             heapq.heappush(self._solutions, z_b)
             while pq:
                 proof_empty = False
-                area, b, warmstart = heapq.heappop(pq)
+                area, b, warm_t, warm_b = heapq.heappop(pq)
                 #print "AREA of current box", area
                 #print "Current Rectangle: ",b
                 rec_b = 0.5*(b[0][1]+b[1][1])
@@ -129,7 +130,7 @@ class RectangleSplittingSolver(BiobjectiveSolver):
                 #print "Current Box: ", b
 
                 #search for new points in lower split
-                z1_hat, r1_hat = self._lexmin(0, 1, rec_b, warmstart=warmstart)
+                z1_hat, r1_hat = self._lexmin(0, 1, rec_b, warmstart=warm_b)
                 if not numpy.allclose(z1_hat.objs, b[1]):
 
                     #if found point is the same as initial point spanning the rectangle
@@ -139,7 +140,7 @@ class RectangleSplittingSolver(BiobjectiveSolver):
                     rec1_hat = (z1_hat.objs, b[1])
                     heapq.heappush(self._solutions, z1_hat)
                     heapq.heappush(pq, (-RectangleSplittingSolver._calculate_rectangle_area(rec1_hat),
-                                        rec1_hat, warmstart))
+                                        rec1_hat, r1_hat, warm_b))
                 else:
                     proof_empty = True
 
@@ -153,7 +154,7 @@ class RectangleSplittingSolver(BiobjectiveSolver):
                 #split the rectangle in vertical direction based on the new found point
                 #and search in the upper half for new pareto points
                 rec_t = z1_hat.objs[0]-BiobjectiveSolver.EPS
-                z2_hat, r2_hat = self._lexmin(1, 0, rec_t, warmstart=r1_hat, effort_level=4)
+                z2_hat, r2_hat = self._lexmin(1, 0, rec_t, warmstart=warm_t, effort_level=0)
                 if not numpy.allclose(z2_hat.objs, b[0]):
 
                     #again if the found point is the already known edge point
@@ -170,7 +171,8 @@ class RectangleSplittingSolver(BiobjectiveSolver):
                         search_rectangles.add((z2_hat.objs, z1_hat.objs))
                     rec2_hat = (b[0], z2_hat.objs)
                     heapq.heappush(self._solutions, z2_hat)
-                    heapq.heappush(pq, (-RectangleSplittingSolver._calculate_rectangle_area(rec2_hat), rec2_hat, r2_hat))
+                    heapq.heappush(pq, (-RectangleSplittingSolver._calculate_rectangle_area(rec2_hat),
+                                        rec2_hat, warm_t, r2_hat))
                 else:
                     #if z1_hat could not be found initial rectangle was empty -> b
                     #if z1_hat was found but z2_hat was not (z_t,z1_hat) is empty
