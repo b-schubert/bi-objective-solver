@@ -30,6 +30,7 @@ class RectangleSplittingWorker(mp.Process):
 
         z1 = self._models[z1_idx]
         if warmstart:
+            z1.MIP_starts.delete() #this is questionable
             z1.MIP_starts.add([self._variables, warmstart], effort_level)
         z1.linear_constraints.set_rhs(self._changeable_constraints[z1_idx], boundary)
         z1.solve()
@@ -53,8 +54,8 @@ class RectangleSplittingWorker(mp.Process):
 
         inter_vars = {}
         if len(self._inter_variables) > 0:
-            inter_vars = {k:v for v, k in itertools.izip(z2.solution.get_values(self._inter_variables), self._inter_variables)
-                          if v > 0.0}
+            inter_vars = {k:v for v, k in itertools.izip(z2.solution.get_values(self._inter_variables),
+                                                         self._inter_variables) if v > 0.0}
         s = Solution(objs, inter_vars)
 
         return s, z2_hat_values
@@ -66,9 +67,11 @@ class RectangleSplittingWorker(mp.Process):
                 self.task_q.task_done()
                 break
 
-            sol, warm = self._lexmin(z1_idx, z2_idx, boundary,  warmstart=warmst, effort_level=0)
-            self.done_q.put((z1_idx, sol, warm, rectangle))
+            if z1_idx:
+                sol, warm = self._lexmin(z1_idx, z2_idx, boundary,  warmstart=warmst[1], effort_level=0)
+                self.done_q.put((z1_idx, sol, [warmst, warm], rectangle))
+            else:
+                sol, warm = self._lexmin(z1_idx, z2_idx, boundary,  warmstart=warmst[0], effort_level=0)
+                self.done_q.put((z1_idx, sol, [warm, warmst], rectangle))
             self.task_q.task_done()
-
-
 
