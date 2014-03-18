@@ -162,13 +162,15 @@ class RectangleSplittingManager(object):
         while task_count > 0:
 
             pos, sol, warm, origin_rect = self.done_q.get()
+            print
+            print
             print "Current Rectangle ", origin_rect
             print "Solution: ", sol
-            print "Solutions ", self.solutions
+            #print "Solutions ", self.solutions
 
             #lexmin2
             if pos:
-                print "lexmin2", pos
+                #print "lexmin2", pos
                 if not numpy.allclose(sol.objs, origin_rect[0]):
                     rec = (origin_rect[0], sol.objs)
                     heapq.heappush(self.solutions, sol)
@@ -178,6 +180,7 @@ class RectangleSplittingManager(object):
 
                     if origin_rect in proof_not_empty_rec:
                         empty_rect.add((sol.objs, proof_not_empty_rec[origin_rect]))
+                        del proof_not_empty_rec[origin_rect]
                     else:
                         #empty_rect.add((sol.objs, origin_rect[1]))
                         proof_not_empty_rec[origin_rect] = sol.objs
@@ -185,12 +188,13 @@ class RectangleSplittingManager(object):
                 else:
                     if origin_rect in proof_not_empty_rec:
                         empty_rect.add((origin_rect[0], proof_not_empty_rec[origin_rect]))
+                        del proof_not_empty_rec[origin_rect]
                     else:
-                        proof_not_empty_rec[origin_rect] = sol.objs
+                        proof_not_empty_rec[origin_rect] = origin_rect[0]
 
             #lexmin1
             else:
-                print "lexmin1 ",pos
+                #print "lexmin1 ",pos
                 rec_t = sol.objs[0]-BiobjectiveSolver.EPS
                 self.task_q.put_nowait((1, 0, rec_t, warm, origin_rect))
                 task_count += 1
@@ -203,27 +207,33 @@ class RectangleSplittingManager(object):
                     task_count += 1
                     if origin_rect in proof_not_empty_rec:
                         empty_rect.add((proof_not_empty_rec[origin_rect], sol.objs))
+                        del proof_not_empty_rec[origin_rect]
+
                     else:
                         proof_not_empty_rec[origin_rect] = sol.objs
                 else:
                     if origin_rect in proof_not_empty_rec:
                         empty_rect.add((proof_not_empty_rec[origin_rect], origin_rect[1]))
+                        del proof_not_empty_rec[origin_rect]
+
                     else:
-                        proof_not_empty_rec[origin_rect] = sol.objs
+                        proof_not_empty_rec[origin_rect] = origin_rect[1]
 
             task_count -= 1
             print "Tasks still running: ", task_count
 
             #if desired approximation quality is reached terminate and return results
-            print "Empty Rectangle ", empty_rect
+            #print "Empty Rectangle ", empty_rect
+            #print "Proofs ", proof_not_empty_rec
             cur_gap = self._hypervol.calc_hypervol_gap(self.solutions, init_rect, empty_rect)
             print "Current Hypervol gap is: ", cur_gap
             if cur_gap <= gap:
                 self._send_terminate()
                 return self.solutions
-
+        print
+        print
         print "Last hypervol gap: ", self._hypervol.calc_hypervol_gap(self.solutions, init_rect, empty_rect)
-        print "Empty rectangles: ", empty_rect
+        #print "Empty rectangles: ", empty_rect
         #actually all worke is done terminate normally
         for _ in xrange(len(self.worker)):
             self.task_q.put_nowait(["DONE", None, None, None, None])
