@@ -10,3 +10,4 @@ Implemented:
 - Normal Constraint Method (Messac et al. 2003)
 - Hypervolume Indicator (Zitler and Thiele 2003)
 - Adjusted Hypervolume Indicator for quality estimate of a pareto front approximation (Boland et al. 2013)
+- Pareto Filter
