@@ -8,11 +8,14 @@
 
 import cplex
 import heapq
+import numpy
 import multiprocessing as mp
-from algorithms.NormalConstraint import *
+
+from algorithms.Base import BiobjectiveSolver
 from rectangle_worker import RectangleSplittingWorker
 
 from utility.Hypervolume import HyperVolume
+
 
 class RectangleSplittingManager(object):
 
@@ -29,7 +32,6 @@ class RectangleSplittingManager(object):
         self.task_q = mp.JoinableQueue()
         self.done_q = mp.Queue()
         m = mp.Manager()
-
 
         self.empty_rectangles = m.list()
         #setup worker
@@ -96,11 +98,11 @@ class RectangleSplittingManager(object):
 
         rec_b = 0.5*(b[0][1]+b[1][1])
 
-        self.task_q.put_nowait((0, 1, rec_b, warm[1], b))
+        self.task_q.put_nowait((0, 1, rec_b, warm, b))
 
         while task_count > 0:
 
-            pos, sol, warmstart, origin_rect = self.done_q.get()
+            pos, sol, warm, origin_rect = self.done_q.get()
             print "Current Rectangle ", origin_rect
             print "Solutions ", self.solutions
 
@@ -111,19 +113,19 @@ class RectangleSplittingManager(object):
                     rec = (origin_rect[0], sol.objs)
                     self.solutions.append(sol)
                     rec_b = 0.5*(rec[0][1]+rec[1][1])
-                    self.task_q.put_nowait((0, 1, rec_b, warmstart, rec))
+                    self.task_q.put_nowait((0, 1, rec_b, warm, rec))
                     task_count += 1
             #lexmin1
             else:
                 print "lexmin1 ",pos
                 rec_t = sol.objs[0]-BiobjectiveSolver.EPS
-                self.task_q.put_nowait((1, 0, rec_t, warmstart, origin_rect))
+                self.task_q.put_nowait((1, 0, rec_t, warm, origin_rect))
                 task_count += 1
                 if not numpy.allclose(sol.objs, origin_rect[1]):
                     rec = (sol.objs, origin_rect[1])
                     rec_b = 0.5*(rec[0][1]+rec[1][1])
                     self.solutions.append(sol)
-                    self.task_q.put_nowait((0, 1, rec_b, warmstart, rec))
+                    self.task_q.put_nowait((0, 1, rec_b, warm, rec))
                     task_count += 1
 
             task_count -= 1
@@ -154,11 +156,11 @@ class RectangleSplittingManager(object):
         init_rect = tuple(init_rect)
         rec_b = 0.5*(init_rect[0][1]+init_rect[1][1])
 
-        self.task_q.put_nowait((0, 1, rec_b, warm[1], init_rect))
+        self.task_q.put_nowait((0, 1, rec_b, warm[0], warm[1], init_rect))
 
         while task_count > 0:
 
-            pos, sol, warmstart, origin_rect = self.done_q.get()
+            pos, sol, warm_t, warm_b, origin_rect = self.done_q.get()
             print "Current Rectangle ", origin_rect
             print "Solution: ", sol
             print "Solutions ", self.solutions
@@ -170,7 +172,7 @@ class RectangleSplittingManager(object):
                     rec = (origin_rect[0], sol.objs)
                     heapq.heappush(self.solutions, sol)
                     rec_b = 0.5*(rec[0][1]+rec[1][1])
-                    self.task_q.put_nowait((0, 1, rec_b, warmstart, rec))
+                    self.task_q.put_nowait((0, 1, rec_b, warm_b, rec))
                     task_count += 1
 
                     if origin_rect in proof_not_empty_rec:
@@ -188,14 +190,14 @@ class RectangleSplittingManager(object):
             else:
                 print "lexmin1 ",pos
                 rec_t = sol.objs[0]-BiobjectiveSolver.EPS
-                self.task_q.put_nowait((1, 0, rec_t, warmstart, origin_rect))
+                self.task_q.put_nowait((1, 0, rec_t, warm_t, origin_rect))
                 task_count += 1
 
                 if not numpy.allclose(sol.objs, origin_rect[1]):
                     rec = (sol.objs, origin_rect[1])
                     rec_b = 0.5*(rec[0][1]+rec[1][1])
                     heapq.heappush(self.solutions, sol)
-                    self.task_q.put_nowait((0, 1, rec_b, warmstart, rec))
+                    self.task_q.put_nowait((0, 1, rec_b, warm_b, rec))
                     task_count += 1
                     if origin_rect in proof_not_empty_rec:
                         empty_rect.add((sol.objs, proof_not_empty_rec[origin_rect]))
