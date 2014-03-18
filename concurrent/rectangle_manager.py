@@ -19,10 +19,10 @@ from utility.Hypervolume import HyperVolume
 
 class RectangleSplittingManager(object):
 
-    def __init__(self, z1_name, z2_name, biob_cons, inter_vars, nof_worker):
+    def __init__(self, z1_name, z2_name, inter_vars, nof_worker):
         self.solutions = []
         self.models = (z1_name, z2_name)
-        self.biob_cons = biob_cons
+        self.biob_cons = ["z2_cons", "z1_cons"]
         self.inter_vars = inter_vars
         self.nof_worker = nof_worker
         self.worker = []
@@ -44,7 +44,8 @@ class RectangleSplittingManager(object):
             z2.parameters.threads.set(max(int(mp.cpu_count()/nof_worker), 1))
             z1.set_results_stream(None)
             z2.set_results_stream(None)
-            p = RectangleSplittingWorker(z1, z2, biob_cons, inter_vars, self.task_q, self.done_q)
+
+            p = RectangleSplittingWorker(z1, z2, self.biob_cons, inter_vars, self.task_q, self.done_q)
             p.deamon = True
             self.worker.append(p)
             p.start()
@@ -82,8 +83,8 @@ class RectangleSplittingManager(object):
         task_count = 1
 
         #init problems to solve
-        self.task_q.put_nowait((0, 1, cplex.infinity, None, ((None, None), (None, None))))
-        self.task_q.put_nowait((1, 0, cplex.infinity, None, ((None, None), (None, None))))
+        self.task_q.put_nowait((0, 1, cplex.infinity, [None, None], ((None, None), (None, None))))
+        self.task_q.put_nowait((1, 0, cplex.infinity, [None, None], ((None, None), (None, None))))
 
         self.task_q.join()
 
@@ -94,7 +95,7 @@ class RectangleSplittingManager(object):
             pos, sol, warmstart, origin_rect = self.done_q.get()
             self.solutions.append(sol)
             b[pos] = sol.objs
-            warm[pos] = warmstart
+            warm[pos] = warmstart[pos]
 
         rec_b = 0.5*(b[0][1]+b[1][1])
 
@@ -141,8 +142,8 @@ class RectangleSplittingManager(object):
         proof_not_empty_rec = {}
         empty_rect = set()
         #init problems to solve
-        self.task_q.put_nowait((0, 1, cplex.infinity, None, ((None, None), (None, None))))
-        self.task_q.put_nowait((1, 0, cplex.infinity, None, ((None, None), (None, None))))
+        self.task_q.put_nowait((0, 1, cplex.infinity, [None, None], ((None, None), (None, None))))
+        self.task_q.put_nowait((1, 0, cplex.infinity, [None, None], ((None, None), (None, None))))
 
         self.task_q.join()
 
@@ -152,15 +153,15 @@ class RectangleSplittingManager(object):
             pos, sol, warmstart, origin_rect = self.done_q.get_nowait()
             heapq.heappush(self.solutions, sol)
             init_rect[pos] = sol.objs
-            warm[pos] = warmstart
+            warm[pos] = warmstart[pos]
         init_rect = tuple(init_rect)
         rec_b = 0.5*(init_rect[0][1]+init_rect[1][1])
 
-        self.task_q.put_nowait((0, 1, rec_b, warm[0], warm[1], init_rect))
+        self.task_q.put_nowait((0, 1, rec_b, warm, init_rect))
 
         while task_count > 0:
 
-            pos, sol, warm_t, warm_b, origin_rect = self.done_q.get()
+            pos, sol, warm, origin_rect = self.done_q.get()
             print "Current Rectangle ", origin_rect
             print "Solution: ", sol
             print "Solutions ", self.solutions
@@ -172,13 +173,14 @@ class RectangleSplittingManager(object):
                     rec = (origin_rect[0], sol.objs)
                     heapq.heappush(self.solutions, sol)
                     rec_b = 0.5*(rec[0][1]+rec[1][1])
-                    self.task_q.put_nowait((0, 1, rec_b, warm_b, rec))
+                    self.task_q.put_nowait((0, 1, rec_b, warm, rec))
                     task_count += 1
 
                     if origin_rect in proof_not_empty_rec:
                         empty_rect.add((sol.objs, proof_not_empty_rec[origin_rect]))
                     else:
-                        empty_rect.add((sol.objs, origin_rect[1]))
+                        #empty_rect.add((sol.objs, origin_rect[1]))
+                        proof_not_empty_rec[origin_rect] = sol.objs
 
                 else:
                     if origin_rect in proof_not_empty_rec:
@@ -190,22 +192,22 @@ class RectangleSplittingManager(object):
             else:
                 print "lexmin1 ",pos
                 rec_t = sol.objs[0]-BiobjectiveSolver.EPS
-                self.task_q.put_nowait((1, 0, rec_t, warm_t, origin_rect))
+                self.task_q.put_nowait((1, 0, rec_t, warm, origin_rect))
                 task_count += 1
 
                 if not numpy.allclose(sol.objs, origin_rect[1]):
                     rec = (sol.objs, origin_rect[1])
                     rec_b = 0.5*(rec[0][1]+rec[1][1])
                     heapq.heappush(self.solutions, sol)
-                    self.task_q.put_nowait((0, 1, rec_b, warm_b, rec))
+                    self.task_q.put_nowait((0, 1, rec_b, warm, rec))
                     task_count += 1
                     if origin_rect in proof_not_empty_rec:
-                        empty_rect.add((sol.objs, proof_not_empty_rec[origin_rect]))
+                        empty_rect.add((proof_not_empty_rec[origin_rect], sol.objs))
                     else:
                         proof_not_empty_rec[origin_rect] = sol.objs
                 else:
                     if origin_rect in proof_not_empty_rec:
-                        empty_rect.add((origin_rect[0], proof_not_empty_rec[origin_rect]))
+                        empty_rect.add((proof_not_empty_rec[origin_rect], origin_rect[1]))
                     else:
                         proof_not_empty_rec[origin_rect] = sol.objs
 
@@ -220,7 +222,7 @@ class RectangleSplittingManager(object):
                 self._send_terminate()
                 return self.solutions
 
-        print "Last hypervol gap: ", self._hypervol.calc_hypervol_gap(self.solutions,init_rect,empty_rect)
+        print "Last hypervol gap: ", self._hypervol.calc_hypervol_gap(self.solutions, init_rect, empty_rect)
         print "Empty rectangles: ", empty_rect
         #actually all worke is done terminate normally
         for _ in xrange(len(self.worker)):

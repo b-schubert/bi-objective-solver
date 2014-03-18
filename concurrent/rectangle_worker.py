@@ -1,4 +1,5 @@
 import itertools
+import cplex
 import multiprocessing as mp
 
 from utility.Solution import Solution
@@ -14,6 +15,12 @@ class RectangleSplittingWorker(mp.Process):
         self._variables = z1.variables.get_names()
         self.task_q = task_q
         self.done_q = done_q
+
+        #modify model for solving (absolutily inefficient but dont know how else)
+        z1_obj_val = {v:z1.objective.get_linear(v) for v in self._variables if z1.objective.get_linear(v) != 0.0}
+        z2_obj_val = {v:z2.objective.get_linear(v) for v in self._variables if z2.objective.get_linear(v) != 0.0}
+        z1.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z2_obj_val.keys(), val=z2_obj_val.values())], senses=["L"], rhs=[0.0], range_values=[0], names=[biob_cons[0]])
+        z2.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z1_obj_val.keys(), val=z1_obj_val.values())], senses=["L"], rhs=[0.0], names=[biob_cons[1]])
 
     def _lexmin(self, z1_idx, z2_idx, boundary,  warmstart=None, effort_level=0):
         """
@@ -66,12 +73,11 @@ class RectangleSplittingWorker(mp.Process):
             if z1_idx == "DONE":
                 self.task_q.task_done()
                 break
-
             if z1_idx:
-                sol, warm = self._lexmin(z1_idx, z2_idx, boundary,  warmstart=warmst[1], effort_level=0)
-                self.done_q.put((z1_idx, sol, [warmst, warm], rectangle))
-            else:
                 sol, warm = self._lexmin(z1_idx, z2_idx, boundary,  warmstart=warmst[0], effort_level=0)
-                self.done_q.put((z1_idx, sol, [warm, warmst], rectangle))
+                self.done_q.put((z1_idx, sol, [warmst[0], warm], rectangle))
+            else:
+                sol, warm = self._lexmin(z1_idx, z2_idx, boundary,  warmstart=warmst[1], effort_level=0)
+                self.done_q.put((z1_idx, sol, [warm, warmst[1]], rectangle))
             self.task_q.task_done()
 
