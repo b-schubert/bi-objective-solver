@@ -29,13 +29,22 @@ class ParetoFilter(object):
                     continue
 
                 zj = solutions[j]
-                print "Zi ", zi
-                print "Zj ", zj
-                print not zi == zj, all(numpy.greater_equal(zi.objs, zj.objs)), not zi == zj and all(numpy.greater_equal(zi.objs, zj.objs))
                 if not zi == zj and all(numpy.greater_equal(zi.objs, zj.objs)):
                     is_global = False
                     break
 
             if is_global:
                 global_sols.append(zi)
-        return global_sols
+
+        g_sol = []
+        for i in xrange(len(global_sols)):
+            duplicate = False
+            for j in xrange(i+1, len(global_sols)):
+                if global_sols[i] == global_sols[j]:
+                    duplicate = True
+                    break
+
+            if not duplicate:
+                g_sol.append(global_sols[i])
+
+        return g_sol

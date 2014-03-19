@@ -3,7 +3,6 @@ import cplex
 import numpy
 import itertools
 
-from copy import deepcopy
 from cplex.exceptions import CplexError
 
 
@@ -54,36 +53,29 @@ class NormalConstraint(BiobjectiveSolver):
         self._solutions.append(z_t)
         self._solutions.append(z_b)
 
-        #calculate l1, l2
-        l1 = z_b.objs[0] - z_t.objs[0]
-        l2 = z_t.objs[1] - z_b.objs[1]
-
-        l1 = 1
-        l2 = 1
-        print "l1: %f ... l2: %f "%(l1,l2)
         #normalize utopian points
         z_t_bar = normalize(z_t.objs)
         z_b_bar = normalize(z_b.objs)
-        print "Normalized obj, ", z_t_bar, z_b_bar
+        #print "Normalized obj, ", z_t_bar, z_b_bar
         #generate utopian line vector
         N1 = z_b_bar - z_t_bar
-        print "N1 ", N1
+        #print "N1 ", N1
         #generated normalized incremental step
         delta = 1/(nof_sol - 1)
 
         #generate utopian line points
         alphas = [delta*i for i in xrange(1, nof_sol - 1)]
         Xp = numpy.matrix([alphas[i]*z_t_bar + (1 - alphas[i])*z_b_bar for i in xrange(nof_sol - 2)])
-        print "Xp ", Xp
+        #print "Xp ", Xp
         #prepare problem
-        z1_hat_val = {v:self._models[0].objective.get_linear(v)/l1 for v in self._variables
+        z1_hat_val = {v:self._models[0].objective.get_linear(v)for v in self._variables
                       if self._models[0].objective.get_linear(v) != 0}
-        z2_hat_val = {v:self._models[1].objective.get_linear(v)/l2 for v in self._variables
+        z2_hat_val = {v:self._models[1].objective.get_linear(v) for v in self._variables
                       if self._models[1].objective.get_linear(v) != 0}
 
         #dont know if one needs deep copy here
         z2 = cplex.Cplex(self._models[1])
-        #z2.set_results_stream(None)
+        z2.set_results_stream(None)
         z2.objective.set_linear(z2_hat_val.iteritems())
         z2.linear_constraints.delete(self._changeable_constraints[1])
         z2.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z1_hat_val.keys(),
@@ -98,15 +90,15 @@ class NormalConstraint(BiobjectiveSolver):
         #solve dat shit!
 
         for i in xrange(nof_sol-2):
-            print "find solution number: ", i
+            #print "find solution number: ", i
             z2.linear_constraints.set_rhs("normal_cons_z1", N1[0]*Xp[i, 0])
             z2.linear_constraints.set_rhs("normal_cons_z2", N1[1]*Xp[i, 1])
 
             try:
                 z2.solve()
-                print "solved"
-                obj = [numpy.inner(z1_hat_val.values(), z2.solution.get_values(z1_hat_val.keys()))*l1,
-                   z2.solution.get_objective_value()*l2]
+                #print "solved"
+                obj = [numpy.inner(z1_hat_val.values(), z2.solution.get_values(z1_hat_val.keys())),
+                   z2.solution.get_objective_value()]
                 #print "Solution ", obj
                 inter_vars = {}
                 if len(self._inter_variables) > 0:

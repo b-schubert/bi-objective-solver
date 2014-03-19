@@ -2,7 +2,9 @@ import sys
 import time
 import cPickle
 import cplex
+
 from concurrent.rectangle_manager import RectangleSplittingManager
+from concurrent.nc_manager import NormalConstraintManager
 from algorithms.BiDirectionalEpsilonConstraint import DoubleEpsilonConstraintSolver
 from algorithms.EpsilonConstraint import EpsilonConstraintSolver
 from algorithms.RectangleSplitting import RectangleSplittingSolver
@@ -38,7 +40,7 @@ def normal_constraint():
     z1 = cplex.Cplex(lp1)
     z2 = cplex.Cplex(lp2)
     nc = NormalConstraint(z1, z2, [])
-    return nc.solve(9)
+    return nc.solve(15)
 
 
 def double_epsilon():
@@ -55,29 +57,48 @@ def concurrent_rectangle():
     m = RectangleSplittingManager(sys.argv[1], sys.argv[2], ["x", "y"], 4)
     return m
 
+def concurrent_nc():
+    m = NormalConstraintManager(sys.argv[1], sys.argv[2], ["x", "y"], 4)
+    return m
+
 
 if __name__ == "__main__":
 
 
+    m = concurrent_nc()
     t = time.time()
-    sols = normal_constraint()
+    sols = m.solve(15)
     e = time.time()
-    print "Concurrent New Normal Constraint Runtime: ", e-t
+    print "Concurrent NC Runtime: ", e-t
     for s in sols:
     #    #print s.vars
         print s.objs
 
-
-    cPickle.dump(sols, open("test_local_pareto.pcl", "w"))
-    print
     print
     filtered = ParetoFilter.filter(sols)
+    for s in filtered:
+    #    #print s.vars
+        print s.objs
+
+    sys.exit()
+
+    t = time.time()
+    sols = normal_constraint()
+    e = time.time()
+    print "New Normal Constraint Runtime: ", e-t
     for s in sols:
     #    #print s.vars
         print s.objs
 
     sys.exit()
 
+    print
+    filtered = ParetoFilter.filter(sols)
+    for s in filtered:
+    #    #print s.vars
+        print s.objs
+
+    sys.exit()
 
     m = concurrent_rectangle()
     t = time.time()
