@@ -5,12 +5,24 @@ import cplex
 
 from concurrent.rectangle_manager import RectangleSplittingManager
 from concurrent.nc_manager import NormalConstraintManager
+from concurrent.rectangle_nc_manager import RectangleNCManager
+
 from algorithms.BiDirectionalEpsilonConstraint import DoubleEpsilonConstraintSolver
 from algorithms.EpsilonConstraint import EpsilonConstraintSolver
 from algorithms.RectangleSplitting import RectangleSplittingSolver
 from algorithms.NormalConstraint import NormalConstraint
 
 from utility.ParetoFilter import ParetoFilter
+
+
+def hybrid():
+    lp1 = sys.argv[1]
+    lp2 = sys.argv[2]
+
+    z1 = cplex.Cplex(lp1)
+    z2 = cplex.Cplex(lp2)
+    m = RectangleNCManager(z1, z2,  ["x", "y"], 4)
+    return m
 
 
 def rectangle():
@@ -64,6 +76,17 @@ def concurrent_nc():
 
 if __name__ == "__main__":
 
+
+    m = hybrid()
+    t = time.time()
+    sols = m.solve()
+    e = time.time()
+    print "Concurrent Hybrid Runtime: ", e-t
+    for s in sols:
+    #    #print s.vars
+        print s.objs
+
+    sys.exit()
 
     m = concurrent_nc()
     t = time.time()

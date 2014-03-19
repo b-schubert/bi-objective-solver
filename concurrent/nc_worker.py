@@ -61,7 +61,7 @@ class NormalConstraintWorker(mp.Process):
                 if len(self._inter_variables) > 0:
                     inter_vars = {k:v for v, k in itertools.izip(z2.solution.get_values(self._inter_variables),
                                                                  self._inter_variables) if v > 0.0}
-                self.done_q.put(Solution(obj, inter_vars))
+                self.done_q.put(Solution(obj, inter_vars, warmstart=z2.solution.get_values()))
                 self.task_q.task_done()
             except CplexError, exc:
                 print exc
