@@ -1,3 +1,4 @@
+
 from __future__ import division
 import cplex
 import numpy
@@ -42,8 +43,8 @@ class NormalConstraint(BiobjectiveSolver):
         def normalize(z):
             return numpy.array(z)
 
-        def transform(z):
-            return z[0]*l1+z_t.objs[0], z[1]*l2+z_b.objs[1]
+        #def transform(z):
+        #    return z[0]*l1+z_t.objs[0], z[1]*l2+z_b.objs[1]
 
         ##### setup ####
         #first generate anchor points
@@ -103,7 +104,8 @@ class NormalConstraint(BiobjectiveSolver):
                 inter_vars = {}
                 if len(self._inter_variables) > 0:
                     inter_vars = {k:v for v, k in itertools.izip(z2.solution.get_values(self._inter_variables),
-                                                                 self._inter_variables) if v > 0.0}
+                                                                 self._inter_variables)
+                                  if numpy.greater(v, 0.0) and not numpy.allclose(v, 0.0, rtol=1e-01, atol=1e-04)}
                     print inter_vars
 
                 self._solutions.append(Solution(obj, inter_vars))

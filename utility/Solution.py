@@ -18,7 +18,7 @@ class Solution(object):
         """
             compare function with other solution
         """
-        return numpy.allclose(self.objs, solution.objs)
+        return numpy.allclose(self.objs, solution.objs, rtol=1e-01, atol=1e-04)
 
     def __lt__(self, solution):
         """

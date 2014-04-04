@@ -32,12 +32,13 @@ class DoubleEpsilonConstraintSolver(BiobjectiveSolver):
                 print "\n\nCurrent bounds" , z1_objs, z2_objs,"\n\n"
                 z1_hat, r1_hat = self._lexmin(0, 1, z1_objs[1] - BiobjectiveSolver.EPS, warmstart=warmstart)
 
-                if numpy.allclose(z1_hat.objs, z2_objs):
+                if numpy.allclose(z1_hat.objs, z2_objs, rtol=1e-01, atol=1e-04):
                     break
 
                 z2_hat, r2_hat = self._lexmin(1, 0, z2_objs[0] - BiobjectiveSolver.EPS, warmstart=r1_hat)
 
-                if numpy.allclose(z2_hat.objs, z1_objs) or numpy.allclose(z2_hat.objs, z1_hat.objs):
+                if numpy.allclose(z2_hat.objs, z1_objs, rtol=1e-01, atol=1e-04) or \
+                        numpy.allclose(z2_hat.objs, z1_hat.objs, rtol=1e-01, atol=1e-04):
                     break
 
                 self._solutions.append(z1_hat)
@@ -88,10 +89,10 @@ class DoubleEpsilonConstraintSolver(BiobjectiveSolver):
 
                 gap = self._hypervol.calc_hypervol_gap(self._solutions, init_rectangle, search_rectangles)
                 #print "Hypergap ", gap
-                if gap <= eps:
+                if numpy.allclose(eps, gap, rtol=1e-01, atol=1e-04) or gap < eps:
                     return self._solutions
 
-                if numpy.allclose(z1_hat.objs, z2_objs):
+                if numpy.allclose(z1_hat.objs, z2_objs, rtol=1e-01, atol=1e-04):
                     return self._solutions
 
                 z2_hat, r2_hat = self._lexmin(1, 0, z2_objs[0] - BiobjectiveSolver.EPS, warmstart=r1_hat)
@@ -100,10 +101,10 @@ class DoubleEpsilonConstraintSolver(BiobjectiveSolver):
 
                 gap = self._hypervol.calc_hypervol_gap(self._solutions, init_rectangle, search_rectangles)
                 #print "Hypergap ", gap
-                if gap <= eps:
+                if numpy.allclose(eps, gap, rtol=1e-01, atol=1e-04) or gap < eps:
                     return self._solutions
 
-                if numpy.allclose(z2_hat.objs, z1_objs) or z2_hat == z1_hat:
+                if numpy.allclose(z2_hat.objs, z1_objs, rtol=1e-01, atol=1e-04) or z2_hat == z1_hat:
                     return self._solutions
 
                 pq.append((z1_hat.objs, z2_hat.objs, r2_hat))

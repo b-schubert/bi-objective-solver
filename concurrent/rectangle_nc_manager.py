@@ -27,6 +27,9 @@ class RectangleNCManager(object):
     def solve(self):
 
         sols = self._nc.solve(self._nof_worker)
+        print "unfiltered pareto points"
+        for s in self.solutions:
+            print s
 
         #filter non pareto points
         sols = sorted(ParetoFilter.filter(sols))
@@ -38,7 +41,7 @@ class RectangleNCManager(object):
 
         sols = self._rs.solve(init_recs=sols)
         self.solutions.extend(sols)
-        return sols
+        return self.solutions
 
     def approximate(self, gap):
         sols = self._nc.solve(self._nof_worker)
@@ -52,7 +55,7 @@ class RectangleNCManager(object):
             print s
 
         curr_gap = HyperVolume.calc_hypervol_gap(self.solutions, [sols[0].objs, sols[-1].objs], [])
-        if curr_gap <= gap:
+        if numpy.allclose(gap, curr_gap, rtol=1e-01, atol=1e-04) or curr_gap < gap:
             return self.solutions
 
         sols = self._rs.approximate(gap, init_recs=sols)

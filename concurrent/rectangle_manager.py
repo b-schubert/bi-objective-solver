@@ -125,7 +125,7 @@ class RectangleSplittingManager(object):
             #lexmin2
             if pos:
                 print "lexmin2", pos
-                if not numpy.allclose(sol.objs, origin_rect[0]):
+                if not numpy.allclose(sol.objs, origin_rect[0], rtol=1e-01, atol=1e-04):
                     rec = (origin_rect[0], sol.objs)
                     self.solutions.append(sol)
                     rec_b = 0.5*(rec[0][1]+rec[1][1])
@@ -137,7 +137,7 @@ class RectangleSplittingManager(object):
                 rec_t = sol.objs[0]-BiobjectiveSolver.EPS
                 self.task_q.put_nowait((1, 0, rec_t, warm, origin_rect))
                 task_count += 1
-                if not numpy.allclose(sol.objs, origin_rect[1]):
+                if not numpy.allclose(sol.objs, origin_rect[1], rtol=1e-01, atol=1e-04):
                     rec = (sol.objs, origin_rect[1])
                     rec_b = 0.5*(rec[0][1]+rec[1][1])
                     self.solutions.append(sol)
@@ -200,7 +200,7 @@ class RectangleSplittingManager(object):
             #lexmin2
             if pos:
                 #print "lexmin2", pos
-                if not numpy.allclose(sol.objs, origin_rect[0]):
+                if not numpy.allclose(sol.objs, origin_rect[0], rtol=1e-01, atol=1e-04):
                     rec = (origin_rect[0], sol.objs)
                     heapq.heappush(self.solutions, sol)
                     rec_b = 0.5*(rec[0][1]+rec[1][1])
@@ -228,7 +228,7 @@ class RectangleSplittingManager(object):
                 self.task_q.put_nowait((1, 0, rec_t, warm, origin_rect))
                 task_count += 1
 
-                if not numpy.allclose(sol.objs, origin_rect[1]):
+                if not numpy.allclose(sol.objs, origin_rect[1], rtol=1e-01, atol=1e-04):
                     rec = (sol.objs, origin_rect[1])
                     rec_b = 0.5*(rec[0][1]+rec[1][1])
                     heapq.heappush(self.solutions, sol)
@@ -256,7 +256,7 @@ class RectangleSplittingManager(object):
             #print "Proofs ", proof_not_empty_rec
             cur_gap = self._hypervol.calc_hypervol_gap(self.solutions, init_rect, empty_rect)
             print "Current Hypervol gap is: ", cur_gap
-            if cur_gap <= gap:
+            if numpy.allclose(gap, cur_gap, rtol=1e-01, atol=1e-04) or cur_gap < gap:
                 self._send_terminate()
                 return self.solutions
         print
