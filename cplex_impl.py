@@ -7,6 +7,7 @@ import re
 from concurrent.rectangle_manager import RectangleSplittingManager
 from concurrent.nc_manager import NormalConstraintManager
 from concurrent.rectangle_nc_manager import RectangleNCManager
+from concurrent.rectangle_epsilon_grid import RectangleEpsilonGridManager
 
 from algorithms.BiDirectionalEpsilonConstraint import DoubleEpsilonConstraintSolver
 from algorithms.EpsilonConstraint import EpsilonConstraintSolver
@@ -22,7 +23,7 @@ def hybrid():
 
     z1 = cplex.Cplex(lp1)
     z2 = cplex.Cplex(lp2)
-    m = RectangleNCManager(z1, z2,  ["x", "y"], 4)
+    m = RectangleEpsilonGridManager(z1, z2,  ["x", "y"], 4)
     return m
 
 

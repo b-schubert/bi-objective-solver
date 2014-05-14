@@ -97,7 +97,7 @@ class RectangleSplittingManager(object):
                 self.task_q.put_nowait((0, 1, rec_b, warm, rec))
 
         else:
-            task_count = 1
+            task_count = 2
             #init problems to solve
             self.task_q.put_nowait((0, 1, cplex.infinity, [None, None], ((None, None), (None, None))))
             self.task_q.put_nowait((1, 0, cplex.infinity, [None, None], ((None, None), (None, None))))
@@ -107,17 +107,20 @@ class RectangleSplittingManager(object):
 
             b = [None, None]
             warm = [None, None]
-            while not self.done_q.empty():
+            while task_count:
                 pos, sol, warmstart, origin_rect = self.done_q.get()
+                if pos is None:
+                    continue
+                task_count -= 1
                 self.solutions.append(sol)
                 b[pos] = sol.objs
                 warm[pos] = warmstart[pos]
 
             rec_b = 0.5*(b[0][1]+b[1][1])
-
+            task_count = 1
             self.task_q.put_nowait((0, 1, rec_b, warm, b))
 
-        while task_count > 0:
+        while task_count:
 
             pos, sol, warm, origin_rect = self.done_q.get()
             print "Current Rectangle ", origin_rect
@@ -171,7 +174,7 @@ class RectangleSplittingManager(object):
                 rec_b = 0.5*(rec[0][1]+rec[1][1])
                 self.task_q.put_nowait((0, 1, rec_b, warm, rec))
         else:
-            task_count += 1
+            task_count += 2
             #init problems to solve
             self.task_q.put_nowait((0, 1, cplex.infinity, [None, None], ((None, None), (None, None))))
             self.task_q.put_nowait((1, 0, cplex.infinity, [None, None], ((None, None), (None, None))))
@@ -180,14 +183,17 @@ class RectangleSplittingManager(object):
 
             init_rect = [None, None]
             warm = [None, None]
-            while not self.done_q.empty():
+            while not task_count:
                 pos, sol, warmstart, origin_rect = self.done_q.get_nowait()
+                if pos is None:
+                    continue
+                task_count -= 1
                 heapq.heappush(self.solutions, sol)
                 init_rect[pos] = sol.objs
                 warm[pos] = warmstart[pos]
             init_rect = tuple(init_rect)
             rec_b = 0.5*(init_rect[0][1]+init_rect[1][1])
-
+            task_count += 1
             self.task_q.put_nowait((0, 1, rec_b, warm, init_rect))
 
         while task_count > 0:
