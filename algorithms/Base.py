@@ -1,6 +1,7 @@
 import itertools
 import cplex
 import abc
+import numpy
 
 from utility.Solution import Solution
 from utility.Hypervolume import HyperVolume
@@ -41,8 +42,8 @@ class BiobjectiveSolver(object):
         #concerning the other objective function
 
         #dont know why i first have to go through the complete list and filter it
-        z1_obj_val = { v:z1.objective.get_linear(v) for v in self._variables if z1.objective.get_linear(v) != 0.0}
-        z2_obj_val = { v:z2.objective.get_linear(v) for v in self._variables if z2.objective.get_linear(v) != 0.0}
+        z1_obj_val = { v:z1.objective.get_linear(v) for v in self._variables if not numpy.allclose(z1.objective.get_linear(v), 0.0)}
+        z2_obj_val = { v:z2.objective.get_linear(v) for v in self._variables if not numpy.allclose(z2.objective.get_linear(v),0.0)}
         z1.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z2_obj_val.keys(), val=z2_obj_val.values())], senses=["L"], rhs=[0.0], range_values=[0], names=["z2_cons"])
         z2.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z1_obj_val.keys(), val=z1_obj_val.values())], senses=["L"], rhs=[0.0], names=["z1_cons"])
 
@@ -86,7 +87,8 @@ class BiobjectiveSolver(object):
         inter_vars = {}
         if len(self._inter_variables) > 0:
             inter_vars = {k:v for v, k in itertools.izip(z2.solution.get_values(self._inter_variables),
-                                                         self._inter_variables) if v > 0.0}
+                                                         self._inter_variables)
+                          if numpy.greater(v, 0.0) and not numpy.allclose(v, 0.0, rtol=1e-01, atol=1e-04)}
         s = Solution(objs, inter_vars)
 
         return s, z2_hat_values

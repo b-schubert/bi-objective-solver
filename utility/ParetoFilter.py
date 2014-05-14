@@ -22,6 +22,7 @@ class ParetoFilter(object):
         m = len(solutions)
 
         for i in xrange(m):
+            is_global = True
             zi = solutions[i]
             for j in xrange(m):
                 if i == j:
@@ -29,7 +30,21 @@ class ParetoFilter(object):
 
                 zj = solutions[j]
                 if not zi == zj and all(numpy.greater_equal(zi.objs, zj.objs)):
+                    is_global = False
                     break
 
-            global_sols.append(zi)
-        return global_sols
+            if is_global:
+                global_sols.append(zi)
+
+        g_sol = []
+        for i in xrange(len(global_sols)):
+            duplicate = False
+            for j in xrange(i+1, len(global_sols)):
+                if global_sols[i] == global_sols[j]:
+                    duplicate = True
+                    break
+
+            if not duplicate:
+                g_sol.append(global_sols[i])
+
+        return g_sol

@@ -51,7 +51,7 @@ class RectangleSplittingSolver(BiobjectiveSolver):
 
                 #search for new points in lower split
                 z1_hat, r1_hat = self._lexmin(0, 1, rec_b, warmstart=warm_b)
-                if not numpy.allclose(z1_hat.objs, b[1]):
+                if not numpy.allclose(z1_hat.objs, b[1], rtol=1e-01, atol=1e-04):
 
                     #if found point is the same as initial point spanning the rectangle
                     #no unsupported point is in the rectangle -> discard the search
@@ -66,7 +66,7 @@ class RectangleSplittingSolver(BiobjectiveSolver):
                 rec_t = z1_hat.objs[0]-BiobjectiveSolver.EPS
                 z2_hat, r2_hat = self._lexmin(1, 0, rec_t, warmstart=warm_t,
                                               effort_level=0)
-                if not numpy.allclose(z2_hat.objs, b[0]):
+                if not numpy.allclose(z2_hat.objs, b[0], rtol=1e-01, atol=1e-04):
 
                     #again if the found point is the already known edge point
                     #one can discard the search in that rectangle
@@ -131,7 +131,7 @@ class RectangleSplittingSolver(BiobjectiveSolver):
 
                 #search for new points in lower split
                 z1_hat, r1_hat = self._lexmin(0, 1, rec_b, warmstart=warm_b)
-                if not numpy.allclose(z1_hat.objs, b[1]):
+                if not numpy.allclose(z1_hat.objs, b[1], rtol=1e-01, atol=1e-04):
 
                     #if found point is the same as initial point spanning the rectangle
                     #no unsupported point is in the rectangle -> discard the search
@@ -148,14 +148,14 @@ class RectangleSplittingSolver(BiobjectiveSolver):
                 gap = self._hypervol.calc_hypervol_gap(self._solutions, init_rectangle, search_rectangles)
                 #print "Approximation Gap: ", gap
                 #print "Proven empty Rectangles ", search_rectangles
-                if gap <= eps:
+                if numpy.allclose(gap, eps, rtol=1e-01, atol=1e-04) or gap <= eps:
                     return self._solutions
 
                 #split the rectangle in vertical direction based on the new found point
                 #and search in the upper half for new pareto points
                 rec_t = z1_hat.objs[0]-BiobjectiveSolver.EPS
                 z2_hat, r2_hat = self._lexmin(1, 0, rec_t, warmstart=warm_t, effort_level=0)
-                if not numpy.allclose(z2_hat.objs, b[0]):
+                if not numpy.allclose(z2_hat.objs, b[0], rtol=1e-01, atol=1e-04):
 
                     #again if the found point is the already known edge point
                     #one can discard the search in that rectangle, because
@@ -184,7 +184,7 @@ class RectangleSplittingSolver(BiobjectiveSolver):
                 gap = self._hypervol.calc_hypervol_gap(self._solutions, init_rectangle, search_rectangles)
                 #print "Approximation Gap: ", gap
                 #print "Proofed empty Rectangles ", search_rectangles
-                if gap <= eps:
+                if numpy.allclose(gap, eps, rtol=1e-01, atol=1e-04) or gap <= eps:
                     return self._solutions
 
         except CplexError, exc:
