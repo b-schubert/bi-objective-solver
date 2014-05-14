@@ -35,9 +35,11 @@ class RectangleSplittingManager(object):
 
         self.empty_rectangles = m.list()
         #setup worker
+        z_t = cplex.Cplex(z1_name)
+        z_b = cplex.Cplex(z2_name)
         for _ in xrange(nof_worker):
-            z1 = cplex.Cplex(z1_name)
-            z2 = cplex.Cplex(z2_name)
+            z1 = cplex.Cplex(z_t)
+            z2 = cplex.Cplex(z_b)
             #z1.parameters.mip.strategy.search.set(1)
             #z2.parameters.mip.strategy.search.set(1)
             z1.parameters.threads.set(max(int(mp.cpu_count()/nof_worker), 1))

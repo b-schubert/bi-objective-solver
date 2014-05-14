@@ -32,9 +32,11 @@ class NormalConstraintManager(object):
         self.empty_rectangles = m.list()
 
         #generate two worker dedicated to deal with the utopian point calculation
+        z_t = cplex.Cplex(z1_name)
+        z_b = cplex.Cplex(z2_name)
         for _ in xrange(2):
-            z1 = cplex.Cplex(z1_name)
-            z2 = cplex.Cplex(z2_name)
+            z1 = cplex.Cplex(z_t)
+            z2 = cplex.Cplex(z_b)
             #z1.parameters.mip.strategy.search.set(1)
             #z2.parameters.mip.strategy.search.set(1)
             z1.parameters.threads.set(max(int(mp.cpu_count()/2), 1))
@@ -49,8 +51,8 @@ class NormalConstraintManager(object):
 
         #setup worker
         for _ in xrange(nof_worker):
-            z1 = cplex.Cplex(z1_name)
-            z2 = cplex.Cplex(z2_name)
+            z1 = cplex.Cplex(z_t)
+            z2 = cplex.Cplex(z_b)
             #z1.parameters.mip.strategy.search.set(1)
             #z2.parameters.mip.strategy.search.set(1)
             z1.parameters.threads.set(max(int(mp.cpu_count()/nof_worker), 1))
