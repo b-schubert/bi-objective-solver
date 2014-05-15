@@ -43,7 +43,7 @@ class ParetoFilter(object):
                 if global_sols[i] == global_sols[j]:
                     duplicate = True
                     break
-
+            print "is it a duplicate", global_sols[i], duplicate
             if not duplicate:
                 g_sol.append(global_sols[i])
 

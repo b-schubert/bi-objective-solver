@@ -183,8 +183,9 @@ class RectangleSplittingManager(object):
 
             init_rect = [None, None]
             warm = [None, None]
-            while not task_count:
-                pos, sol, warmstart, origin_rect = self.done_q.get_nowait()
+            while task_count:
+                pos, sol, warmstart, origin_rect = self.done_q.get()
+
                 if pos is None:
                     continue
                 task_count -= 1
