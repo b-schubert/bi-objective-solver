@@ -26,7 +26,7 @@ class RectangleEpsilonGridManager(object):
 
     def solve(self):
 
-        sols = self._nc.solve(self._nof_worker)
+        sols = self._nc.solve(self._nof_worker+2)
         print "unfiltered pareto points"
         for s in sols:
             print s
