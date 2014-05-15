@@ -40,10 +40,11 @@ class ParetoFilter(object):
         for i in xrange(len(global_sols)):
             duplicate = False
             for j in xrange(i+1, len(global_sols)):
-                if global_sols[i] == global_sols[j]:
+                if numpy.allclose(global_sols[i].objs, global_sols[j].objs, rtol=1e-02, atol=1e-06):
+                    print "is it a duplicate", global_sols[i], global_sols[j]
                     duplicate = True
                     break
-            print "is it a duplicate", global_sols[i], duplicate
+
             if not duplicate:
                 g_sol.append(global_sols[i])
 

@@ -33,10 +33,10 @@ class RectangleEpsilonGridManager(object):
 
         #filter non pareto points
         sols = sorted(ParetoFilter.filter(sols))
-        self.solutions.extend(sols)
+        #self.solutions.extend(sols)
 
         print "Filtered pareto points"
-        for s in self.solutions:
+        for s in sols:
             print s
 
         sols = self._rs.solve(init_recs=sols)
