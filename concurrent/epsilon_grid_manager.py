@@ -18,7 +18,7 @@ class EpsilonGridManager(object):
         the epsilon contraint method with precomputed boundaries
     """
 
-    def __init__(self, z1_name, z2_name, inter_vars, nof_worker):
+    def __init__(self, z1_name, z2_name, inter_vars, nof_worker, constraints=None):
         """
             init function
 
@@ -39,7 +39,7 @@ class EpsilonGridManager(object):
         self.task_q = mp.JoinableQueue()
         self.task_utopian_q = mp.JoinableQueue()
         self.done_q = mp.Queue()
-
+        cons = ["z2_cons", "z1_cons"] if constraints is None else constraints
         z1_temp = cplex.Cplex(z1_name)
         z2_temp = cplex.Cplex(z2_name)
         #generate two worker dedicated to deal with the utopian point calculation
@@ -53,7 +53,8 @@ class EpsilonGridManager(object):
             z1.set_results_stream(None)
             z2.set_results_stream(None)
 
-            p = RectangleSplittingWorker(z1, z2, ["z2_cons", "z1_cons"], inter_vars, self.task_utopian_q, self.done_q)
+            p = RectangleSplittingWorker(z1, z2, cons, inter_vars, self.task_utopian_q, self.done_q,
+                                         has_cons=constraints is None)
             p.deamon = True
             self._utopian_worker.append(p)
             p.start()
@@ -68,8 +69,10 @@ class EpsilonGridManager(object):
             z2.parameters.threads.set(max(int(mp.cpu_count()/float(nof_worker)), 1))
             z1.set_results_stream(None)
             z2.set_results_stream(None)
-
-            p = EpsilonGridWorker(z1, z2, inter_vars, self.task_q, self.done_q)
+            if constraints is None:
+                p = EpsilonGridWorker(z1, z2, inter_vars, self.task_q, self.done_q)
+            else:
+                p = EpsilonGridWorker(z1, z2, inter_vars, self.task_q, self.done_q,constraints=cons)
             p.deamon = True
             self.worker.append(p)
             p.start()

@@ -8,7 +8,7 @@ from utility.Solution import Solution
 
 class RectangleSplittingWorker(mp.Process):
 
-    def __init__(self, z1, z2, biob_cons, inter_vars, task_q, done_q):
+    def __init__(self, z1, z2, biob_cons, inter_vars, task_q, done_q, has_cons=False):
         mp.Process.__init__(self)
         self._models = (z1, z2)
         self._changeable_constraints = biob_cons
@@ -18,17 +18,18 @@ class RectangleSplittingWorker(mp.Process):
         self.done_q = done_q
 
         #modify model for solving (absolutily inefficient but dont know how else)
-        z1_obj_val = {}
-        z2_obj_val = {}
-        for v in self._variables:
-            val_z1 = z1.objective.get_linear(v)
-            val_z2 = z2.objective.get_linear(v)
-            if not numpy.allclose(val_z1, 0.0):
-                z1_obj_val[v] = val_z1
-            if not numpy.allclose(val_z2, 0.0):
-                z2_obj_val[v] = val_z2
-        z1.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z2_obj_val.keys(), val=z2_obj_val.values())], senses=["L"], rhs=[0.0], range_values=[0], names=[biob_cons[0]])
-        z2.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z1_obj_val.keys(), val=z1_obj_val.values())], senses=["L"], rhs=[0.0], names=[biob_cons[1]])
+        if has_cons:
+            z1_obj_val = {}
+            z2_obj_val = {}
+            for v in self._variables:
+                val_z1 = z1.objective.get_linear(v)
+                val_z2 = z2.objective.get_linear(v)
+                if not numpy.allclose(val_z1, 0.0):
+                    z1_obj_val[v] = val_z1
+                if not numpy.allclose(val_z2, 0.0):
+                    z2_obj_val[v] = val_z2
+            z1.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z2_obj_val.keys(), val=z2_obj_val.values())], senses=["L"], rhs=[0.0], range_values=[0], names=[biob_cons[0]])
+            z2.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z1_obj_val.keys(), val=z1_obj_val.values())], senses=["L"], rhs=[0.0], names=[biob_cons[1]])
 
     def _lexmin(self, z1_idx, z2_idx, boundary,  warmstart=None, effort_level=0):
         """

@@ -12,7 +12,7 @@ from algorithms.Base import BiobjectiveSolver
 
 class EpsilonGridWorker(mp.Process, BiobjectiveSolver):
 
-    def __init__(self, z1, z2, inter_vars, task_q, done_q):
+    def __init__(self, z1, z2, inter_vars, task_q, done_q, constraints=None):
         mp.Process.__init__(self)
         BiobjectiveSolver.__init__(self, z1, z2, inter_vars)
 

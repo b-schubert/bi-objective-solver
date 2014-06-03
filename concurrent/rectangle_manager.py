@@ -19,10 +19,10 @@ from utility.Hypervolume import HyperVolume
 
 class RectangleSplittingManager(object):
 
-    def __init__(self, z1_name, z2_name, inter_vars, nof_worker):
+    def __init__(self, z1_name, z2_name, inter_vars, nof_worker,constraints=None):
         self.solutions = []
         self.models = (z1_name, z2_name)
-        self.biob_cons = ["z2_cons", "z1_cons"]
+        self.biob_cons = ["z2_cons", "z1_cons"] if constraints is None else constraints
         self.inter_vars = inter_vars
         self.nof_worker = nof_worker
         self.worker = []
@@ -49,7 +49,8 @@ class RectangleSplittingManager(object):
             z1.set_results_stream(None)
             z2.set_results_stream(None)
 
-            p = RectangleSplittingWorker(z1, z2, self.biob_cons, int_vars, self.task_q, self.done_q)
+            p = RectangleSplittingWorker(z1, z2, self.biob_cons, int_vars, self.task_q, self.done_q,
+                                         has_cons=constraints is None)
             p.deamon = True
             self.worker.append(p)
             p.start()

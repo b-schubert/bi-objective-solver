@@ -16,7 +16,7 @@ from utility.ParetoFilter import ParetoFilter
 
 class RectangleNCManager(object):
 
-    def __init__(self, z1_name, z2_name, inter_vars, nof_worker):
+    def __init__(self, z1_name, z2_name, inter_vars, nof_worker, constraints=None):
         self.solutions = []
         self._nc = NormalConstraintManager(z1_name, z2_name, inter_vars, nof_worker+2)
         print "Normal Constraint initialized"

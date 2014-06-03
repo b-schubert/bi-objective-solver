@@ -16,11 +16,11 @@ from utility.ParetoFilter import ParetoFilter
 
 class RectangleEpsilonGridManager(object):
 
-    def __init__(self, z1_name, z2_name, inter_vars, nof_worker):
+    def __init__(self, z1_name, z2_name, inter_vars, nof_worker, constraints=None):
         self.solutions = []
-        self._nc = EpsilonGridManager(z1_name, z2_name, inter_vars, nof_worker+2)
+        self._nc = EpsilonGridManager(z1_name, z2_name, inter_vars, nof_worker+2, constraints)
         print "Epsilon Grid initialized"
-        self._rs = RectangleSplittingManager(z1_name, z2_name, inter_vars, nof_worker)
+        self._rs = RectangleSplittingManager(z1_name, z2_name, inter_vars, nof_worker, constraints)
         print "Rectangle Splitting initialized"
         self._nof_worker = nof_worker
 
