@@ -48,8 +48,8 @@ class EpsilonGridManager(object):
             z2 = cplex.Cplex(z2_temp)
             #z1.parameters.mip.strategy.search.set(1)
             #z2.parameters.mip.strategy.search.set(1)
-            z1.parameters.threads.set(max(int(mp.cpu_count()/2), 1))
-            z2.parameters.threads.set(max(int(mp.cpu_count()/2), 1))
+            z1.parameters.threads.set(max(int(mp.cpu_count()/2.0), 1))
+            z2.parameters.threads.set(max(int(mp.cpu_count()/2.0), 1))
             z1.set_results_stream(None)
             z2.set_results_stream(None)
 
@@ -64,8 +64,8 @@ class EpsilonGridManager(object):
             z2 = cplex.Cplex(z2_temp)
             #z1.parameters.mip.strategy.search.set(1)
             #z2.parameters.mip.strategy.search.set(1)
-            z1.parameters.threads.set(max(int(mp.cpu_count()/nof_worker), 1))
-            z2.parameters.threads.set(max(int(mp.cpu_count()/nof_worker), 1))
+            z1.parameters.threads.set(max(int(mp.cpu_count()/float(nof_worker)), 1))
+            z2.parameters.threads.set(max(int(mp.cpu_count()/float(nof_worker)), 1))
             z1.set_results_stream(None)
             z2.set_results_stream(None)
 

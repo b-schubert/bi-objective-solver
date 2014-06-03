@@ -1,21 +1,31 @@
+from __future__ import division
 import itertools
+import sys
 import cplex
 import numpy
-import multiprocessing as mp
-
+import argparse
+import ConfigParser
+from multiprocessing.managers import SyncManager
 from utility.Solution import Solution
 
 
-class RectangleSplittingWorker(mp.Process):
+class RectangleSplittingWorker(object):
 
-    def __init__(self, z1, z2, biob_cons, inter_vars, task_q, done_q):
-        mp.Process.__init__(self)
+    def __init__(self, z1_name, z2_name, biob_cons, inter_vars, port, authkey, ip, nof_cpu=6):
+        z1 = cplex.Cplex(z1_name)
+        z2 = cplex.Cplex(z2_name)
+        z1.parameters.threads.set(nof_cpu)
+        z2.parameters.threads.set(nof_cpu)
+        #z1.set_results_stream(None)
+        #z2.set_results_stream(None)
+
+        self.manager = self.__make_client_manager(port, authkey, ip)
         self._models = (z1, z2)
         self._changeable_constraints = biob_cons
         self._inter_variables = inter_vars
         self._variables = z1.variables.get_names()
-        self.task_q = task_q
-        self.done_q = done_q
+        self.task_q = self.manager.get_task_q()
+        self.done_q = self.manager.get_done_q()
 
         #modify model for solving (absolutily inefficient but dont know how else)
         z1_obj_val = {}
@@ -29,6 +39,28 @@ class RectangleSplittingWorker(mp.Process):
                 z2_obj_val[v] = val_z2
         z1.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z2_obj_val.keys(), val=z2_obj_val.values())], senses=["L"], rhs=[0.0], range_values=[0], names=[biob_cons[0]])
         z2.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z1_obj_val.keys(), val=z1_obj_val.values())], senses=["L"], rhs=[0.0], names=[biob_cons[1]])
+
+        #run the worker
+        self.run()
+
+    def __make_client_manager(self, port, authkey, ip):
+        """
+        generates manager and connects to manager master manager
+        :param port:
+        :param authkey:
+        :return: manager
+        """
+        class ServerQueueManager(SyncManager):
+            pass
+
+        ServerQueueManager.register('get_task_q')
+        ServerQueueManager.register('get_done_q')
+
+        manager = ServerQueueManager(address=(ip, port), authkey=authkey)
+        manager.connect()
+
+        print 'Client connected to %s:%s' % (ip, port)
+        return manager
 
     def _lexmin(self, z1_idx, z2_idx, boundary,  warmstart=None, effort_level=0):
         """
@@ -89,4 +121,44 @@ class RectangleSplittingWorker(mp.Process):
                 sol, warm = self._lexmin(z1_idx, z2_idx, boundary,  warmstart=warmst[1], effort_level=0)
                 self.done_q.put((z1_idx, sol, [warm, warmst[1]], rectangle))
             self.task_q.task_done()
+        self.manager.shutdown()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=' Recnagle Worker Grid implementation')
+    parser.add_argument('--input','-i',
+                      required=True,
+                      nargs=2,
+                      help="model files ")
+    parser.add_argument('--port','-p',
+                      required=True,
+                      help="port to connect"
+                      )
+    parser.add_argument('--authkey','-a',
+                      required=True,
+                      help="authentication key"
+                      )
+    parser.add_argument('--threads','-t',
+                      required=True,
+                      help="nof of core"
+                      )
+    parser.add_argument('--constraints','-c',
+                      required=True,
+                      help="Constraints"
+                      )
+    parser.add_argument('--variables','-v',
+                      required=True,
+                      help="interesting variables"
+                      )
+    args = parser.parse_args()
+    config = ConfigParser.ConfigParser()
+    config.read("./config.cfg")
+
+    #z1_name, z2_name, biob_cons, inter_vars, port, authkey, ip, nof_cpu=6
+    worker = RectangleSplittingWorker(args.input[0], args.input[1],
+                                      args.constraints.split(),args.variables.split(), args.port, args.authkey,
+                                      config.get("GENERAL","master_ip"), args.threads)
+
+    sys.exit()
+
 

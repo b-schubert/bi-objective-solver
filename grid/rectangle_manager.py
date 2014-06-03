@@ -1,6 +1,7 @@
 """
-    This file contains concurrecnt implementations of the rectangle splitting
-    algorithm
+    This file contains grid implementations of the rectangle splitting
+    algorithm. The manager should be started on the master node of the grid
+    and the worker are submitted as jobs and communicate via TCP/IP with the manager
 
     @Author: Benjamin Schubert
 
@@ -9,17 +10,21 @@ from __future__ import division
 import cplex
 import heapq
 import numpy
+import argparse
 import multiprocessing as mp
+from multiprocessing.managers import SyncManager
+import ConfigParser
+import subprocess
+import time
 
 from algorithms.Base import BiobjectiveSolver
-from rectangle_worker import RectangleSplittingWorker
 
 from utility.Hypervolume import HyperVolume
 
 
 class RectangleSplittingManager(object):
 
-    def __init__(self, z1_name, z2_name, inter_vars, nof_worker):
+    def __init__(self, z1_name, z2_name, inter_vars, nof_worker, nof_cpu=6, port=60, authkey="deimmuno", config="./config.cfg"):
         self.solutions = []
         self.models = (z1_name, z2_name)
         self.biob_cons = ["z2_cons", "z1_cons"]
@@ -27,45 +32,83 @@ class RectangleSplittingManager(object):
         self.nof_worker = nof_worker
         self.worker = []
         self._hypervol = HyperVolume()
-
+        self._manager = self.__make_manager_server(port, authkey)
         #concurrent stuff
-        self.task_q = mp.JoinableQueue()
-        self.done_q = mp.Queue()
-        m = mp.Manager()
+        self.task_q = self._manager.get_task_q()
+        self.done_q = self._manager.get_done_q()
+        self._config = ConfigParser.ConfigParser()
+        self._config.read(config)
+        self.empty_rectangles = []
 
-        self.empty_rectangles = m.list()
         #setup worker
-        z_t = cplex.Cplex(z1_name)
-        z_b = cplex.Cplex(z2_name)
-        int_vars = filter(lambda x:  x[0] in inter_vars, z_t.variables.get_names())
-        nof_cpu = max(int(mp.cpu_count()/float(nof_worker)), 1)
-        for _ in xrange(nof_worker):
-            z1 = cplex.Cplex(z_t)
-            z2 = cplex.Cplex(z_b)
-            #z1.parameters.mip.strategy.search.set(1)
-            #z2.parameters.mip.strategy.search.set(1)
-            z1.parameters.threads.set(nof_cpu)
-            z2.parameters.threads.set(nof_cpu)
-            z1.set_results_stream(None)
-            z2.set_results_stream(None)
+        self.__start_worker(nof_worker, port, authkey, nof_cpu)
 
-            p = RectangleSplittingWorker(z1, z2, self.biob_cons, int_vars, self.task_q, self.done_q)
-            p.deamon = True
-            self.worker.append(p)
-            p.start()
+    def __make_manager_server(self, port, authkey):
+        """
+         Starts a manager server
+        :return: Manager object
+        """
 
-    def _send_terminate(self):
+        job_q = mp.JoinableQueue()
+        result_q = mp.Queue()
+
+        # This is based on the examples in the official docs of multiprocessing.
+        # get_{job|result}_q return synchronized proxies for the actual Queue
+        # objects.
+        class JobQueueManager(mp.managers.SyncManager):
+            pass
+
+        JobQueueManager.register('get_task_q', callable=lambda: job_q)
+        JobQueueManager.register('get_done_q', callable=lambda: result_q)
+
+        manager = JobQueueManager(address=('', port), authkey=authkey)
+        manager.start()
+        print 'Server started at port %s' % port
+        return manager
+
+    def __start_worker(self, nof_worker, port, authkey, nof_cpu):
         """
-            terminates the worker processes prematurily
-            only used in approximate to break the compuation
-            after reaching a certain predefined gap
+        Submit worker jobs to the queue.
+        :param nof_cpu:
+        :param port:
+        :param authkey:
+        :return: None
         """
-        self.task_q.close()
-        self.task_q.join_thread()
-        self.done_q.close()
-        self.done_q.join_thread()
-        for p in self.worker:
-            p.terminate()
+        submit_call = self._config.get("CLUSTER", "submit")
+        command = self._config.get("CLUSTER", "submit_command")
+
+        template = open(self._config.get("GENERAL", "template"),"r").readlines()
+        job_input_folder = self._config.get("GENERAL", "input")
+        job_out_folder = self._config.get("GENERAL", "output")
+        job_error_folder = job_out_folder = self._config.get("GENERAL", "error")
+        rectangel_wroker = self._config.get("WORKER", "rectangle")
+
+        for i in xrange(nof_worker):
+            name = ".".join(self.models[0].split(".")[:-1])+"_worker_%i"%i
+            input_log = job_input_folder+name+".sh"
+            output_log = job_out_folder+name+".o"
+            error_log = job_error_folder+name+".e"
+            command = command%(nof_cpu, output_log, error_log, input_log)
+            with open(input_log, "w") as f:
+                f.write("".join(template))
+                f.write("\n\npython %s -i %s %s -p %i -a %s -t %i -c %s -v %s"%(rectangel_wroker, self.models[0],
+                                                                                 self.models[1], port, authkey,
+                                                                                 nof_cpu, " ".join(self.biob_cons),
+                                                                                 " ".join(self.inter_vars)))
+            id = subprocess.check_output("%s %s "%(submit_call, command), shell=True)
+            print id
+            self.worker.append(id)
+
+    def _terminate_worker(self):
+        """
+        terminates the running worker on the cluster
+        :return: None
+        """
+        cancel_call = self._config.get("CLUSTER", "cancel")
+        commands = self._config.get("CLUSTER", "cancel_command")
+
+        for id in self.worker:
+            subprocess.call(cancel_call+" "+commands+" "+id)
 
     def _gently_terminate(self):
         """
@@ -74,11 +117,8 @@ class RectangleSplittingManager(object):
         """
         for _ in xrange(len(self.worker)):
             self.task_q.put_nowait(["DONE", None, None, None, None])
-        self.task_q.close()
-        self.task_q.join()
-        for p in self.worker:
-            print "shut down worker ", p.pid
-            p.join()
+        time.sleep(2)
+        self._manager.shutdown()
 
     def solve(self, init_recs=None):
         """
@@ -268,7 +308,7 @@ class RectangleSplittingManager(object):
             cur_gap = self._hypervol.calc_hypervol_gap(self.solutions, init_rect, empty_rect)
             print "Current Hypervol gap is: ", cur_gap
             if numpy.allclose(gap, cur_gap, rtol=1e-01, atol=1e-04) or cur_gap < gap:
-                self._send_terminate()
+                self._gently_terminate()
                 return self.solutions
         print
         print
@@ -285,72 +325,23 @@ class RectangleSplittingManager(object):
 
         return self.solutions
 
-
-class RectangleSplittingManagerDirectSplit(RectangleSplittingManager):
-    '''
-        a version of the splitter in which it is not waiting for lexmin_z1 to finish before lexmin_z2 starts
-    '''
-
-    def solve(self):
-        task_count = 2
-
-        #init problems to solve
-        self.task_q.put_nowait((0, 1, cplex.infinity, None, ((None, None), (None, None))))
-        self.task_q.put_nowait((1, 0, cplex.infinity, None, ((None, None), (None, None))))
-
-        self.task_q.join()
+if __name__ == "__main__":
+    import cPickle as pcl
 
 
-        b = [None, None]
-        warm = [None, None]
-        while not self.done_q.empty():
-            pos, sol, warmstart, origin_rect = self.done_q.get()
-            self.solutions.append(sol)
-            b[pos] = sol.objs
-            warm[pos] = warmstart
+    parser = argparse.ArgumentParser(description=' Rectangle Worker Grid implementation')
+    parser.add_argument('--input','-i',
+                      required=True,
+                      nargs=2,
+                      help="model files ")
+    parser.add_argument('--output','-o',
+                      required=True,
+                      nargs=2,
+                      help="Solution output as pickel")
 
-        rec_b = 0.5*(b[0][1]+b[1][1])
-        rec_t = b[1][0]-BiobjectiveSolver.EPS
-        self.task_q.put_nowait((0, 1, rec_b, warm[1], b))
-        self.task_q.put_nowait((1,0,rec_t, warm[0], b))
+    args = parser.parse_args()
+    manager = RectangleSplittingManager(args.input[0],args.input[1],["x","y"],4)
 
-        while task_count > 0:
-            pos, sol, warmstart, origin_rect = self.done_q.get()
-            print "Current Rectangle ", origin_rect
-            print "Solution: ", sol
-            #print "Solutions ", self.solutions
-
-            #lexmin2
-            if pos:
-                print "lexmin2", pos
-                if not numpy.allclose(sol.objs, origin_rect[0]):
-                    rec = (origin_rect[0], sol.objs)
-                    self.solutions.append(sol)
-                    rec_b = 0.5*(rec[0][1]+rec[1][1])
-                    rec_t = rec[1][0]-BiobjectiveSolver.EPS
-                    self.task_q.put_nowait((0, 1, rec_b, warmstart, rec))
-                    self.task_q.put_nowait((1,0,rec_t, warmstart, rec))
-                    task_count +=2
-            else:
-                if not numpy.allclose(sol.objs, origin_rect[1]):
-                    rec = (sol.objs, origin_rect[1])
-                    rec_b = 0.5*(rec[0][1]+rec[1][1])
-                    rec_t = rec[1][0]-BiobjectiveSolver.EPS
-                    self.solutions.append(sol)
-                    self.task_q.put_nowait((0, 1, rec_b, warmstart, rec))
-                    self.task_q.put_nowait((1,0,rec_t, warmstart, rec))
-                    task_count += 2
-
-            task_count -= 1
-            print "Tasks still running: ", task_count
-
-        #all work done send exit signal
-        for _ in xrange(len(self.worker)):
-            self.task_q.put_nowait(["DONE", None, None, None, None])
-        self.task_q.close()
-        self.task_q.join()
-        for p in self.worker:
-            print "shut down worker ", p.pid
-            p.join()
-
-        return self.solutions
+    sols = manager.approximate(0.001)
+    print sols
+    pcl.dump(sols, open(args.output, "w"), -1)

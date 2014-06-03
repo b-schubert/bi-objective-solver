@@ -1,0 +1,15 @@
+[CLUSTER]
+submit=msub
+submit_command=-l nodes=1:ppn=%i -e %s -o %s -q forever -M schubert@informatik.uni-tuebingen.de -m e -d /share/usr/schubert/projects/multiobjective_optimization_coopr/src/bi-objective-solver/ %s
+cancel=mjobctl
+cancel_command=-c %s
+
+[GENERAL]
+template=/share/usr/schubert/projects/multiobjective_optimization_coopr/src/bi-objective-solver/grid/template.sh
+input=/share/usr/schubert/projects/multiobjective_optimization_coopr/input/
+output=/share/usr/schubert/projects/multiobjective_optimization_coopr/output/
+error=/share/usr/schubert/projects/multiobjective_optimization_coopr/error/
+master_ip=134.2.15.255
+
+[WORKER]
+rectangle=/share/usr/schubert/projects/multiobjective_optimization_coopr/src/bi-objective-solver/grid/rectangle_worker.py
