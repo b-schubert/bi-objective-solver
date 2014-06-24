@@ -13,3 +13,5 @@ master_ip=134.2.15.255
 
 [WORKER]
 rectangle=/share/usr/schubert/projects/multiobjective_optimization_coopr/src/bi-objective-solver/grid/rectangle_worker.py
+rectangle_epsilon_grid=/share/usr/schubert/projects/multiobjective_optimization_coopr/src/bi-objective-solver/grid/epsilon_rectanlge_worker.py
+epsilon_grid==/share/usr/schubert/projects/multiobjective_optimization_coopr/src/bi-objective-solver/grid/epsilon_grid_worker.py

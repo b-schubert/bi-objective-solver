@@ -14,10 +14,10 @@ class BiobjectiveSolver(object):
 
     __metaclass__ = abc.ABCMeta
 
-    EPS = 1e-3
+    EPS = 1e-5
     #EPS = 1
 
-    def __init__(self, z1, z2, interesting_vars, constraints=None):
+    def __init__(self, z1, z2, interesting_vars, constraints=None,nof_cpu=3):
         """
             initializes the solver model and
              modifies the given cplex model
@@ -32,6 +32,8 @@ class BiobjectiveSolver(object):
         z2 = cplex.Cplex(z2)
         z1.set_results_stream(None)
         z2.set_results_stream(None)
+        z1.parameters.threads.set(int(nof_cpu))
+        z2.parameters.threads.set(int(nof_cpu))
 
         self._models = (z1, z2)
         self._changeable_constraints = ["z2_cons", "z1_cons"] if constraints is None else constraints
@@ -45,8 +47,15 @@ class BiobjectiveSolver(object):
 
         #dont know why i first have to go through the complete list and filter it
         if constraints is None:
-            z1_obj_val = { v:z1.objective.get_linear(v) for v in self._variables if not numpy.allclose(z1.objective.get_linear(v), 0.0)}
-            z2_obj_val = { v:z2.objective.get_linear(v) for v in self._variables if not numpy.allclose(z2.objective.get_linear(v),0.0)}
+            z1_obj_val = {}
+            z2_obj_val = {}
+            for v in self._variables:
+                if not numpy.allclose(z1.objective.get_linear(v), 0.0):
+                    z1_obj_val[v] = z1.objective.get_linear(v)
+
+                if not numpy.allclose(z2.objective.get_linear(v), 0.0):
+                    z2_obj_val[v] = z2.objective.get_linear(v)
+
             z1.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z2_obj_val.keys(), val=z2_obj_val.values())], senses=["L"], rhs=[0.0], range_values=[0], names=["z2_cons"])
             z2.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z1_obj_val.keys(), val=z1_obj_val.values())], senses=["L"], rhs=[0.0], names=["z1_cons"])
 

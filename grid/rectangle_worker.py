@@ -11,34 +11,35 @@ from utility.Solution import Solution
 
 class RectangleSplittingWorker(object):
 
-    def __init__(self, z1_name, z2_name, biob_cons, inter_vars, port, authkey, ip, nof_cpu=6):
+    def __init__(self, z1_name, z2_name, biob_cons, inter_vars, port, authkey, ip, nof_cpu=6, has_constraints=False):
         z1 = cplex.Cplex(z1_name)
         z2 = cplex.Cplex(z2_name)
-        z1.parameters.threads.set(nof_cpu)
-        z2.parameters.threads.set(nof_cpu)
+        z1.parameters.threads.set(int(nof_cpu))
+        z2.parameters.threads.set(int(nof_cpu))
         #z1.set_results_stream(None)
         #z2.set_results_stream(None)
 
         self.manager = self.__make_client_manager(port, authkey, ip)
         self._models = (z1, z2)
         self._changeable_constraints = biob_cons
-        self._inter_variables = inter_vars
+        self._inter_variables = filter(lambda x:  x[0] in inter_vars, z1.variables.get_names())
         self._variables = z1.variables.get_names()
         self.task_q = self.manager.get_task_q()
         self.done_q = self.manager.get_done_q()
 
         #modify model for solving (absolutily inefficient but dont know how else)
-        z1_obj_val = {}
-        z2_obj_val = {}
-        for v in self._variables:
-            val_z1 = z1.objective.get_linear(v)
-            val_z2 = z2.objective.get_linear(v)
-            if not numpy.allclose(val_z1, 0.0):
-                z1_obj_val[v] = val_z1
-            if not numpy.allclose(val_z2, 0.0):
-                z2_obj_val[v] = val_z2
-        z1.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z2_obj_val.keys(), val=z2_obj_val.values())], senses=["L"], rhs=[0.0], range_values=[0], names=[biob_cons[0]])
-        z2.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z1_obj_val.keys(), val=z1_obj_val.values())], senses=["L"], rhs=[0.0], names=[biob_cons[1]])
+        if not has_constraints:
+            z1_obj_val = {}
+            z2_obj_val = {}
+            for v in self._variables:
+                val_z1 = z1.objective.get_linear(v)
+                val_z2 = z2.objective.get_linear(v)
+                if not numpy.allclose(val_z1, 0.0):
+                    z1_obj_val[v] = val_z1
+                if not numpy.allclose(val_z2, 0.0):
+                    z2_obj_val[v] = val_z2
+            z1.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z2_obj_val.keys(), val=z2_obj_val.values())], senses=["L"], rhs=[0.0], range_values=[0], names=[biob_cons[0]])
+            z2.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z1_obj_val.keys(), val=z1_obj_val.values())], senses=["L"], rhs=[0.0], names=[biob_cons[1]])
 
         #run the worker
         self.run()
@@ -131,6 +132,7 @@ if __name__ == "__main__":
                       nargs=2,
                       help="model files ")
     parser.add_argument('--port','-p',
+                      type=int,
                       required=True,
                       help="port to connect"
                       )
@@ -139,6 +141,7 @@ if __name__ == "__main__":
                       help="authentication key"
                       )
     parser.add_argument('--threads','-t',
+                      type=int,
                       required=True,
                       help="nof of core"
                       )
@@ -150,6 +153,11 @@ if __name__ == "__main__":
                       required=True,
                       help="interesting variables"
                       )
+    parser.add_argument('--hasconst','-hc',
+                      action="store_true",
+                      required=True,
+                      help="If constraints are already in model included"
+                      )
     args = parser.parse_args()
     config = ConfigParser.ConfigParser()
     config.read("./config.cfg")
@@ -157,7 +165,7 @@ if __name__ == "__main__":
     #z1_name, z2_name, biob_cons, inter_vars, port, authkey, ip, nof_cpu=6
     worker = RectangleSplittingWorker(args.input[0], args.input[1],
                                       args.constraints.split(),args.variables.split(), args.port, args.authkey,
-                                      config.get("GENERAL","master_ip"), args.threads)
+                                      config.get("GENERAL","master_ip"), args.threads, args.hasconst)
 
     sys.exit()
 
