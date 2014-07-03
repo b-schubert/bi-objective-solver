@@ -17,9 +17,10 @@ import ConfigParser
 import subprocess
 import time
 import os
-from algorithms.Base import BiobjectiveSolver
+import stat
+from Base import BiobjectiveSolver
 
-from utility.Hypervolume import HyperVolume
+from Hypervolume import HyperVolume
 
 
 class RectangleSplittingManager(object):
@@ -95,7 +96,8 @@ class RectangleSplittingManager(object):
                                                                                  self.models[1], port, authkey,
                                                                                  nof_cpu, " ".join(self.biob_cons),
                                                                                  " ".join(self.inter_vars)))
-            id = subprocess.check_output("%s %s "%(submit_call, com), shell=True)
+            os.system("chmod 777 %s"%input_log)
+	    id = subprocess.check_output("%s %s "%(submit_call, com), shell=True)
             print id
             self.worker.append(id)
 
@@ -310,7 +312,7 @@ class RectangleSplittingManager(object):
             print "Current Hypervol gap is: ", cur_gap
             if numpy.allclose(gap, cur_gap, rtol=1e-01, atol=1e-04) or cur_gap < gap:
                 self._gently_terminate()
-                self._terminate_worker()
+                #self._terminate_worker()
                 return self.solutions
         print
         print
@@ -326,7 +328,7 @@ class RectangleSplittingManager(object):
             p.join()
 
         self._gently_terminate()
-        self._terminate_worker()
+        #self._terminate_worker()
 
         return self.solutions
 
@@ -341,12 +343,13 @@ if __name__ == "__main__":
                       help="model files ")
     parser.add_argument('--output','-o',
                       required=True,
-                      nargs=2,
                       help="Solution output as pickel")
 
     args = parser.parse_args()
-    manager = RectangleSplittingManager(args.input[0],args.input[1],["x","y"],4)
-
-    sols = manager.approximate(0.001)
+    manager = RectangleSplittingManager(args.input[0],args.input[1],["x","y"], 4,nof_cpu=6, port=6881)
+    start = time.time()
+    sols = manager.approximate(0.0001)
+    end=time.time()
+    print "Runtime: ", end - start
     print sols
-    pcl.dump(sols, open(args.output, "w"), -1)
+    pcl.dump(sols, open(args.output, "w"))

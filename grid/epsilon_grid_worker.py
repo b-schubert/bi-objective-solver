@@ -4,7 +4,7 @@ import argparse
 import ConfigParser
 from multiprocessing.managers import SyncManager
 from cplex.exceptions import CplexError
-from algorithms.Base import BiobjectiveSolver
+from Base import BiobjectiveSolver
 
 
 class EpsilonGridWorker(BiobjectiveSolver):
@@ -83,24 +83,25 @@ if __name__ == "__main__":
                       )
     parser.add_argument('--constraints','-c',
                       required=True,
+		      nargs=2,
                       help="Constraints"
                       )
     parser.add_argument('--variables','-v',
                       required=True,
+		      nargs="+",
                       help="interesting variables"
                       )
     parser.add_argument('--hasconst','-hc',
                       action="store_true",
-                      required=True,
                       help="If constraints are already in model included"
                       )
     args = parser.parse_args()
     config = ConfigParser.ConfigParser()
-    config.read("./config.cfg")
+    config.read("/home-link/zxmqy30/bi-objective-solver/grid/config.cfg")
 
     #z1_name, z2_name, biob_cons, inter_vars, port, authkey, ip, nof_cpu=6
     worker = EpsilonGridWorker(args.input[0], args.input[1],
-                               args.constraints.split(),args.variables.split(), args.port, args.authkey,
+                               args.constraints,args.variables, args.port, args.authkey,
                                config.get("GENERAL","master_ip"), args.threads, args.hasconst)
 
     sys.exit()

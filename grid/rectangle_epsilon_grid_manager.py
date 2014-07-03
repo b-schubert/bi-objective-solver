@@ -8,9 +8,9 @@ import ConfigParser
 import subprocess
 import time
 import os
-from utility.Hypervolume import HyperVolume
-from utility.ParetoFilter import ParetoFilter
-from algorithms.Base import BiobjectiveSolver
+from Hypervolume import HyperVolume
+from ParetoFilter import ParetoFilter
+from Base import BiobjectiveSolver
 
 class EpsilonGridManager(object):
     """
@@ -32,7 +32,8 @@ class EpsilonGridManager(object):
         self.biob_cons = ["z2_cons", "z1_cons"] if constraints is None else constraints
         self.inter_vars = inter_vars
         self.nof_worker = nof_worker
-        self.worker = []
+        self.epsilon_worker = []
+	self.rectangle_worker = []
         self._hypervol = HyperVolume()
         self._manager = self.__make_manager_server(port, authkey)
         #concurrent stuff
@@ -90,8 +91,9 @@ class EpsilonGridManager(object):
         rectangel_wroker = self._config.get("WORKER", "rectangle_epsilon_grid")
 
         epsilon_worker = self._config.get("WORKER", "epsilon_grid")
+	print epsilon_worker
         for i in xrange(nof_worker):
-            name = ".".join(os.path.basename(self.models[0]).split(".")[:-1])+"_worker_%i"%i
+            name = ".".join(os.path.basename(self.models[0]).split(".")[:-1])+"_epsilon_worker_%i"%i
             input_log = job_input_folder+name+".sh"
             output_log = job_out_folder+name+".o"
             error_log = job_error_folder+name+".e"
@@ -102,13 +104,14 @@ class EpsilonGridManager(object):
                                                                                  self.models[1], port, authkey,
                                                                                  nof_cpu, " ".join(self.biob_cons),
                                                                                  " ".join(self.inter_vars)))
-            id = subprocess.check_output("%s %s "%(submit_call, com), shell=True)
+            os.system("chmod 777 %s"%input_log)
+	    id = subprocess.check_output("%s %s "%(submit_call, com), shell=True)
             print id
-            self.worker.append(id)
+            self.epsilon_worker.append(id)
 
 
         for i in xrange(nof_worker-1):
-            name = ".".join(os.path.basename(self.models[0]).split(".")[:-1])+"_worker_%i"%i
+            name = ".".join(os.path.basename(self.models[0]).split(".")[:-1])+"_rectangle_worker_%i"%i
             input_log = job_input_folder+name+".sh"
             output_log = job_out_folder+name+".o"
             error_log = job_error_folder+name+".e"
@@ -119,9 +122,10 @@ class EpsilonGridManager(object):
                                                                                  self.models[1], port, authkey,
                                                                                  nof_cpu, " ".join(self.biob_cons),
                                                                                  " ".join(self.inter_vars)))
-            id = subprocess.check_output("%s %s "%(submit_call, com), shell=True)
+            os.system("chmod 777 %s"%input_log)
+	    id = subprocess.check_output("%s %s "%(submit_call, com), shell=True)
             print id
-            self.worker.append(id)
+            self.rectangle_worker.append(id)
 
 
     def _terminate_worker(self, ids):
@@ -130,10 +134,11 @@ class EpsilonGridManager(object):
         :return: None
         """
         cancel_call = self._config.get("CLUSTER", "cancel")
-        commands = self._config.get("CLUSTER", "cancel_command")
+        #commands = self._config.get("CLUSTER", "cancel_command")
 
         for id in ids:
-            subprocess.call(cancel_call+" "+commands+" "+id)
+	    print "Terminate ", id
+            os.system(cancel_call+" "+id)
 
     def _gently_terminate(self, grid=True):
         """
@@ -141,10 +146,10 @@ class EpsilonGridManager(object):
             to the worker
         """
         if grid:
-            for _ in xrange(len(self.worker)):
-                self.task_q.put_nowait("DONE")
+            for _ in xrange(self.nof_worker):
+                self.task_q.put("DONE")
         else:
-            for _ in xrange(len(self.worker)-1):
+            for _ in xrange(self.nof_worker-1):
                 self.task_utopian_q.put(["DONE", None, None, None, None])
         time.sleep(3)
         self._manager.shutdown()
@@ -169,9 +174,9 @@ class EpsilonGridManager(object):
             b[pos] = sol.objs
             warm[pos] = warmstart[pos]
 
-        delta = 1/(nof_sol - 1)
+        delta = 1/(nof_sol)
         diff = b[1][1] - b[0][1]
-        alphas = [delta*i*diff for i in xrange(1, nof_sol - 1)]
+        alphas = [delta*i*diff for i in xrange(1, nof_sol)]
 
         for i in xrange(nof_sol - 2):
             print "Bounds: ", b[0][1]+alphas[i]
@@ -183,7 +188,7 @@ class EpsilonGridManager(object):
             sols = self.done_q.get()
             solutions.append(sols)
 
-        self._gently_terminate(grid=True)
+        self._terminate_worker(self.epsilon_worker)
         return solutions
 
     def solve_rectangle(self, init_recs=None):
@@ -202,15 +207,14 @@ class EpsilonGridManager(object):
                 warm = [zi.warm_start, zj.warm_start]
                 rec = [zi.objs, zj.objs]
                 rec_b = 0.5*(rec[0][1]+rec[1][1])
-                self.task_q.put_nowait((0, 1, rec_b, warm, rec))
-
+                self.task_utopian_q.put((0, 1, rec_b, warm, tuple(rec)))
         else:
             task_count = 2
             #init problems to solve
-            self.task_q.put_nowait((0, 1, cplex.infinity, [None, None], ((None, None), (None, None))))
-            self.task_q.put_nowait((1, 0, cplex.infinity, [None, None], ((None, None), (None, None))))
+            self.task_utopian_q.put((0, 1, cplex.infinity, [None, None], ((None, None), (None, None))))
+            self.task_utopian_q.put((1, 0, cplex.infinity, [None, None], ((None, None), (None, None))))
 
-            self.task_q.join()
+            self.task_utopian_q.join()
 
 
             b = [None, None]
@@ -226,7 +230,7 @@ class EpsilonGridManager(object):
 
             rec_b = 0.5*(b[0][1]+b[1][1])
             task_count = 1
-            self.task_q.put_nowait((0, 1, rec_b, warm, b))
+            self.task_utopian_q.put((0, 1, rec_b, warm, b))
 
         while task_count:
 
@@ -242,27 +246,29 @@ class EpsilonGridManager(object):
                     rec = (origin_rect[0], sol.objs)
                     self.solutions.append(sol)
                     rec_b = 0.5*(rec[0][1]+rec[1][1])
-                    self.task_q.put_nowait((0, 1, rec_b, warm, rec))
+                    self.task_utopian_q.put((0, 1, rec_b, warm, rec))
                     task_count += 1
             #lexmin1
             else:
                 print "lexmin1 ",pos
                 rec_t = sol.objs[0]-BiobjectiveSolver.EPS
-                self.task_q.put_nowait((1, 0, rec_t, warm, origin_rect))
+                self.task_utopian_q.put((1, 0, rec_t, warm, origin_rect))
                 task_count += 1
                 if not numpy.allclose(sol.objs, origin_rect[1], rtol=1e-01, atol=1e-04):
                     rec = (sol.objs, origin_rect[1])
                     rec_b = 0.5*(rec[0][1]+rec[1][1])
                     self.solutions.append(sol)
-                    self.task_q.put_nowait((0, 1, rec_b, warm, rec))
+                    self.task_utopian_q.put((0, 1, rec_b, warm, rec))
                     task_count += 1
 
             task_count -= 1
             print "Tasks still running: ", task_count
 
         #all work done send exit signal
-        self._gently_terminate(grid=False)
-        self._terminate_worker()
+	#self._gently_terminate(grid=True)
+        #self._gently_terminate(grid=False)
+        #self._gently_terminate(grid=True)
+	self._terminate_worker(self.rectangle_worker)
 
     def solve(self, nof_sol=None):
         sols = self.solve_grid(nof_sol=nof_sol)
@@ -290,7 +296,7 @@ class EpsilonGridManager(object):
         for s in sols:
             print s
 
-        curr_gap = HyperVolume.calc_hypervol_gap(self.solutions, [sols[0].objs, sols[-1].objs], [])
+        curr_gap = HyperVolume.calc_hypervol_gap(sols, [sols[0].objs, sols[-1].objs], [])
         if numpy.allclose(gap, curr_gap, rtol=1e-03, atol=1e-04) or curr_gap < gap:
             return sols
 
@@ -311,12 +317,12 @@ if __name__ == "__main__":
                       help="model files ")
     parser.add_argument('--output','-o',
                       required=True,
-                      nargs=2,
                       help="Solution output as pickel")
 
     args = parser.parse_args()
-    manager = EpsilonGridManager(args.input[0],args.input[1],["x","y"],4)
-
-    sols = manager.approximate(0.001)
-    print sols
+    manager = EpsilonGridManager(args.input[0],args.input[1],["x","y"],4,port=6881)
+    s = time.time()
+    sols = manager.solve(4)
+    e= time.time()
+    print "Solution time ", e-s
     pcl.dump(sols, open(args.output, "w"), -1)

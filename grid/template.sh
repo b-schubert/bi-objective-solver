@@ -1,5 +1,4 @@
-#!/bin/bash
-source /share/usr/schubert/~bashrc
+source /home-link/zxmqy30/.bashrc
 
 ##### HERE STARTS SUBMITED CODE #######
 
