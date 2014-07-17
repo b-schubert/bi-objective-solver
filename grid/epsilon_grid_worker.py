@@ -14,7 +14,7 @@ class EpsilonGridWorker(BiobjectiveSolver):
                                    nof_cpu=nof_cpu)
         self.manager = self.__make_client_manager(port, authkey, ip)
         self.task_q = self.manager.get_task_q()
-        self.done_q = self.manager.get_done_q()
+        self.done_q = self.manager.get_eps_done_q()
 
         self.run()
 
@@ -29,7 +29,7 @@ class EpsilonGridWorker(BiobjectiveSolver):
             pass
 
         ServerQueueManager.register('get_task_q')
-        ServerQueueManager.register('get_done_q')
+        ServerQueueManager.register('get_eps_done_q')
 
         manager = ServerQueueManager(address=(ip, port), authkey=authkey)
         manager.connect()
@@ -40,6 +40,7 @@ class EpsilonGridWorker(BiobjectiveSolver):
     def run(self):
 
         while True:
+            print "waiting for task"
             bound = self.task_q.get()
             if bound == "DONE":
                 self.task_q.task_done()
@@ -47,6 +48,7 @@ class EpsilonGridWorker(BiobjectiveSolver):
 
             try:
                 z1_hat, r_hat = self._lexmin(0, 1, bound)
+                print z1_hat
                 self.done_q.put(z1_hat)
                 self.task_q.task_done()
             except CplexError, exc:
@@ -83,12 +85,12 @@ if __name__ == "__main__":
                       )
     parser.add_argument('--constraints','-c',
                       required=True,
-		      nargs=2,
+                      nargs=2,
                       help="Constraints"
                       )
     parser.add_argument('--variables','-v',
                       required=True,
-		      nargs="+",
+                      nargs="+",
                       help="interesting variables"
                       )
     parser.add_argument('--hasconst','-hc',

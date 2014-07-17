@@ -32,7 +32,7 @@ class EpsilonConstraintSolver(BiobjectiveSolver):
                 bound = pq.pop() - BiobjectiveSolver.EPS
                 z1_hat, r_hat = self._lexmin(0, 1, bound)
                 print "\n\nCurrent bound", bound, z1_hat.objs,"\n\n"
-                if not numpy.allclose(z1_hat.objs, z_b.objs, rtol=1e-01, atol=1e-04):
+                if z1_hat.hash != z_b.hash:
                     #if we have not reached the bottom corner of the search space add
                     #add new boundary and continue
                     pq.append(z1_hat.objs[1])
@@ -83,7 +83,7 @@ class EpsilonConstraintSolver(BiobjectiveSolver):
                 bound = point[1] - BiobjectiveSolver.EPS
                 z1_hat, r_hat = self._lexmin(0, 1, bound)
                 #print bound, z1_hat.objs
-                if not numpy.allclose(z1_hat.objs, z_b.objs, rtol=1e-01, atol=1e-04):
+                if z1_hat.hash != z_b.hash:
                     #if we have not reached the bottom corner of the search space add
                     #add new boundary and continue
                     rectangle = (point, z1_hat.objs)

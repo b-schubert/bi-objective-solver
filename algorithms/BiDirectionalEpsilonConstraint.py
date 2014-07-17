@@ -25,25 +25,24 @@ class DoubleEpsilonConstraintSolver(BiobjectiveSolver):
             z_b, r_b = self._lexmin(1, 0, cplex.infinity)
             self._solutions.append(z_t)
             self._solutions.append(z_b)
-            pq.append((z_t.objs, z_b.objs, r_b))
+            pq.append((z_t, z_b, r_b))
 
             while pq:
-                z1_objs, z2_objs, warmstart = pq.pop()
-                print "\n\nCurrent bounds" , z1_objs, z2_objs,"\n\n"
-                z1_hat, r1_hat = self._lexmin(0, 1, z1_objs[1] - BiobjectiveSolver.EPS, warmstart=warmstart)
+                z1, z2, warmstart = pq.pop()
+                print "\n\nCurrent bounds" , z1.objs, z2.objs,"\n\n"
+                z1_hat, r1_hat = self._lexmin(0, 1, z1.objs[1] - BiobjectiveSolver.EPS, warmstart=warmstart)
 
-                if numpy.allclose(z1_hat.objs, z2_objs, rtol=1e-01, atol=1e-04):
+                if z1_hat.hash == z2.hash():
                     break
 
-                z2_hat, r2_hat = self._lexmin(1, 0, z2_objs[0] - BiobjectiveSolver.EPS, warmstart=r1_hat)
+                z2_hat, r2_hat = self._lexmin(1, 0, z2.objs[0] - BiobjectiveSolver.EPS, warmstart=r1_hat)
 
-                if numpy.allclose(z2_hat.objs, z1_objs, rtol=1e-01, atol=1e-04) or \
-                        numpy.allclose(z2_hat.objs, z1_hat.objs, rtol=1e-01, atol=1e-04):
+                if z2_hat.hash == z1.hash or z2_hat.hash == z1_hat.hash:
                     break
 
                 self._solutions.append(z1_hat)
                 self._solutions.append(z2_hat)
-                pq.append((z1_hat.objs, z2_hat.objs, r2_hat))
+                pq.append((z1_hat, z2_hat, r2_hat))
 
         except CplexError, exc:
             print exc
@@ -78,36 +77,36 @@ class DoubleEpsilonConstraintSolver(BiobjectiveSolver):
             init_rectangle = (z_t.objs, z_b.objs)
             self._solutions.append(z_b)
 
-            pq.append((z_t.objs, z_b.objs, r_b))
+            pq.append((z_t, z_b, r_b))
 
             while pq:
-                z1_objs, z2_objs, warmstart = pq.pop()
+                z1, z2, warmstart = pq.pop()
                 #print z1_objs, z2_objs,
-                z1_hat, r1_hat = self._lexmin(0, 1, z1_objs[1] - BiobjectiveSolver.EPS, warmstart=warmstart)
+                z1_hat, r1_hat = self._lexmin(0, 1, z1.objs[1] - BiobjectiveSolver.EPS, warmstart=warmstart)
                 self._solutions.append(z1_hat)
-                search_rectangles.add((z1_objs, z1_hat.objs))
+                search_rectangles.add((z1.objs, z1_hat.objs))
 
                 gap = self._hypervol.calc_hypervol_gap(self._solutions, init_rectangle, search_rectangles)
                 #print "Hypergap ", gap
                 if numpy.allclose(eps, gap, rtol=1e-01, atol=1e-04) or gap < eps:
                     return self._solutions
 
-                if numpy.allclose(z1_hat.objs, z2_objs, rtol=1e-01, atol=1e-04):
+                if z1_hat.hash == z2.hash:
                     return self._solutions
 
-                z2_hat, r2_hat = self._lexmin(1, 0, z2_objs[0] - BiobjectiveSolver.EPS, warmstart=r1_hat)
+                z2_hat, r2_hat = self._lexmin(1, 0, z2.objs[0] - BiobjectiveSolver.EPS, warmstart=r1_hat)
                 self._solutions.append(z2_hat)
-                search_rectangles.add((z2_hat.objs, z2_objs))
+                search_rectangles.add((z2_hat.objs, z2.objs))
 
                 gap = self._hypervol.calc_hypervol_gap(self._solutions, init_rectangle, search_rectangles)
                 #print "Hypergap ", gap
                 if numpy.allclose(eps, gap, rtol=1e-01, atol=1e-04) or gap < eps:
                     return self._solutions
 
-                if numpy.allclose(z2_hat.objs, z1_objs, rtol=1e-01, atol=1e-04) or z2_hat == z1_hat:
+                if z2_hat.hash == z1.hash or z2_hat.hash == z1_hat.hash:
                     return self._solutions
 
-                pq.append((z1_hat.objs, z2_hat.objs, r2_hat))
+                pq.append((z1_hat, z2_hat, r2_hat))
 
         except CplexError, exc:
             print exc

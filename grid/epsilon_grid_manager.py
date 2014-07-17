@@ -17,7 +17,7 @@ class EpsilonGridManager(object):
         the epsilon contraint method with precomputed boundaries
     """
 
-    def __init__(self, z1_name, z2_name, inter_vars, nof_worker, nof_cpu=6, port=60, authkey="deimmuno", config="./config.cfg", constraints=None):
+    def __init__(self, z1_name, z2_name, inter_vars, nof_worker, nof_cpu=6, port=6881, authkey="rectangle", config="./config.cfg", constraints=None):
         """
             init function
 

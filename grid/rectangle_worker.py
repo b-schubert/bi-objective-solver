@@ -8,12 +8,14 @@ import ConfigParser
 from multiprocessing.managers import SyncManager
 from Solution import Solution
 
+from cplex.exceptions import CplexError
 
 class RectangleSplittingWorker(object):
 
-    def __init__(self, z1_name, z2_name, biob_cons, inter_vars, port, authkey, ip, nof_cpu=6, has_constraints=False):
+    def __init__(self, z1_name, z2_name, biob_cons, inter_vars, port, authkey, ip, nof_cpu=6):
         z1 = cplex.Cplex(z1_name)
         z2 = cplex.Cplex(z2_name)
+        print nof_cpu
         z1.parameters.threads.set(int(nof_cpu))
         z2.parameters.threads.set(int(nof_cpu))
         #z1.set_results_stream(None)
@@ -28,18 +30,17 @@ class RectangleSplittingWorker(object):
         self.done_q = self.manager.get_done_q()
 
         #modify model for solving (absolutily inefficient but dont know how else)
-        if not has_constraints:
-            z1_obj_val = {}
-            z2_obj_val = {}
-            for v in self._variables:
-                val_z1 = z1.objective.get_linear(v)
-                val_z2 = z2.objective.get_linear(v)
-                if not numpy.allclose(val_z1, 0.0):
-                    z1_obj_val[v] = val_z1
-                if not numpy.allclose(val_z2, 0.0):
-                    z2_obj_val[v] = val_z2
-            z1.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z2_obj_val.keys(), val=z2_obj_val.values())], senses=["L"], rhs=[0.0], range_values=[0], names=[biob_cons[0]])
-            z2.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z1_obj_val.keys(), val=z1_obj_val.values())], senses=["L"], rhs=[0.0], names=[biob_cons[1]])
+        z1_obj_val = {}
+        z2_obj_val = {}
+        for v in self._variables:
+            val_z1 = z1.objective.get_linear(v)
+            val_z2 = z2.objective.get_linear(v)
+            if not numpy.allclose(val_z1, 0.0):
+                z1_obj_val[v] = val_z1
+            if not numpy.allclose(val_z2, 0.0):
+                z2_obj_val[v] = val_z2
+        z1.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z2_obj_val.keys(), val=z2_obj_val.values())], senses=["L"], rhs=[0.0], range_values=[0], names=[biob_cons[0]])
+        z2.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=z1_obj_val.keys(), val=z1_obj_val.values())], senses=["L"], rhs=[0.0], names=[biob_cons[1]])
 
         #run the worker
         self.run()
@@ -111,18 +112,22 @@ class RectangleSplittingWorker(object):
 
     def run(self):
         while True:
-            z1_idx, z2_idx, boundary, warmst, rectangle = self.task_q.get()
+            z1_idx, z2_idx, boundary, warmst, rectangle, hashs = self.task_q.get()
             if z1_idx == "DONE":
                 self.task_q.task_done()
                 break
-            if z1_idx:
-                sol, warm = self._lexmin(z1_idx, z2_idx, boundary,  warmstart=warmst[0], effort_level=0)
-                self.done_q.put((z1_idx, sol, [warmst[0], warm], rectangle))
-            else:
-                sol, warm = self._lexmin(z1_idx, z2_idx, boundary,  warmstart=warmst[1], effort_level=0)
-                self.done_q.put((z1_idx, sol, [warm, warmst[1]], rectangle))
-            self.task_q.task_done()
-        self.manager.shutdown()
+            try:
+                if z1_idx:
+                        sol, warm = self._lexmin(z1_idx, z2_idx, boundary,  warmstart=warmst[0], effort_level=0)
+                        self.done_q.put((z1_idx, sol, [warmst[0], warm], rectangle, hashs))
+                else:
+                        sol, warm = self._lexmin(z1_idx, z2_idx, boundary,  warmstart=warmst[1], effort_level=0)
+                        self.done_q.put((z1_idx, sol, [warm, warmst[1]], rectangle,hashs))
+
+                self.task_q.task_done()
+            except CplexError, e:
+                self.done_q.put(("error", None, None, None, None))
+                self.task_q.task_done()
 
 
 if __name__ == "__main__":
@@ -141,32 +146,28 @@ if __name__ == "__main__":
                       help="authentication key"
                       )
     parser.add_argument('--threads','-t',
-                      type=int,
                       required=True,
+                      type=int,
                       help="nof of core"
                       )
     parser.add_argument('--constraints','-c',
+                      nargs=2,
                       required=True,
-		      nargs=2,
                       help="Constraints"
                       )
     parser.add_argument('--variables','-v',
+                      nargs=2,
                       required=True,
-		      nargs="+",
                       help="interesting variables"
-                      )
-    parser.add_argument('--hasconst','-hc',
-                      action="store_true",
-                      help="If constraints are already in model included"
                       )
     args = parser.parse_args()
     config = ConfigParser.ConfigParser()
-    config.read("/home-link/zxmqy30/bi-objective-solver/grid/config.cfg")
+    config.read("/share/usr/schubert/projects/multiobjective_optimization_coopr/src/bi-objective-solver/bi-objective-solver/grid/config.cfg")
 
     #z1_name, z2_name, biob_cons, inter_vars, port, authkey, ip, nof_cpu=6
     worker = RectangleSplittingWorker(args.input[0], args.input[1],
                                       args.constraints,args.variables, args.port, args.authkey,
-                                      config.get("GENERAL","master_ip"), args.threads, args.hasconst)
+                                      config.get("GENERAL","master_ip"), args.threads)
 
     sys.exit()
 

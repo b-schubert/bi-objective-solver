@@ -1,4 +1,5 @@
-source /home-link/zxmqy30/.bashrc
+#!/bin/bash
+source /somewhere/.bashrc
 
 ##### HERE STARTS SUBMITED CODE #######
 

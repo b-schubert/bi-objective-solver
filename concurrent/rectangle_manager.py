@@ -74,7 +74,7 @@ class RectangleSplittingManager(object):
             to the worker
         """
         for _ in xrange(len(self.worker)):
-            self.task_q.put_nowait(["DONE", None, None, None, None])
+            self.task_q.put(["DONE", None, None, None, None, None])
         self.task_q.close()
         self.task_q.join()
         for p in self.worker:
@@ -95,37 +95,40 @@ class RectangleSplittingManager(object):
                 zi = init_recs[i]
                 zj = init_recs[i+1]
                 warm = [zi.warm_start, zj.warm_start]
+                hs = [zi.hash, zj.hash]
                 rec = [zi.objs, zj.objs]
                 rec_b = 0.5*(rec[0][1]+rec[1][1])
-                self.task_q.put_nowait((0, 1, rec_b, warm, rec))
+                self.task_q.put((0, 1, rec_b, warm, rec, hs))
 
         else:
             task_count = 2
             #init problems to solve
-            self.task_q.put_nowait((0, 1, cplex.infinity, [None, None], ((None, None), (None, None))))
-            self.task_q.put_nowait((1, 0, cplex.infinity, [None, None], ((None, None), (None, None))))
+            self.task_q.put((0, 1, cplex.infinity, [None, None], ((None, None), (None, None)), [tuple(), tuple()]))
+            self.task_q.put((1, 0, cplex.infinity, [None, None], ((None, None), (None, None)), [tuple(), tuple()]))
 
             self.task_q.join()
 
 
             b = [None, None]
             warm = [None, None]
+            hashs = [None, None]
             while task_count:
-                pos, sol, warmstart, origin_rect = self.done_q.get()
+                pos, sol, warmstart,origin_rect, hs = self.done_q.get()
                 if pos is None:
                     continue
                 task_count -= 1
                 self.solutions.append(sol)
                 b[pos] = sol.objs
+                hashs[pos] = sol.hash
                 warm[pos] = warmstart[pos]
 
             rec_b = 0.5*(b[0][1]+b[1][1])
             task_count = 1
-            self.task_q.put_nowait((0, 1, rec_b, warm, b))
+            self.task_q.put((0, 1, rec_b, warm, b, hashs))
 
         while task_count:
 
-            pos, sol, warm, origin_rect = self.done_q.get()
+            pos, sol, warm, origin_rect, has = self.done_q.get()
             print "Current Rectangle ", origin_rect
             print "Solution ", sol
             print "Solutions ", self.solutions
@@ -133,23 +136,24 @@ class RectangleSplittingManager(object):
             #lexmin2
             if pos:
                 print "lexmin2", pos
-                if not numpy.allclose(sol.objs, origin_rect[0], rtol=1e-01, atol=1e-04):
-                    rec = (origin_rect[0], sol.objs)
+                if sol.hash != has[0]:
+                    hs = [has[0], sol.hash]
                     self.solutions.append(sol)
                     rec_b = 0.5*(rec[0][1]+rec[1][1])
-                    self.task_q.put_nowait((0, 1, rec_b, warm, rec))
+                    self.task_q.put_nowait((0, 1, rec_b, warm, rec, hs))
                     task_count += 1
             #lexmin1
             else:
                 print "lexmin1 ",pos
                 rec_t = sol.objs[0]-BiobjectiveSolver.EPS
-                self.task_q.put_nowait((1, 0, rec_t, warm, origin_rect))
+                self.task_q.put_nowait((1, 0, rec_t, warm, origin_rect, has))
                 task_count += 1
-                if not numpy.allclose(sol.objs, origin_rect[1], rtol=1e-01, atol=1e-04):
+                if sol.hash != has[1]:
                     rec = (sol.objs, origin_rect[1])
+                    hs = [sol.hash, has[1]]
                     rec_b = 0.5*(rec[0][1]+rec[1][1])
                     self.solutions.append(sol)
-                    self.task_q.put_nowait((0, 1, rec_b, warm, rec))
+                    self.task_q.put_nowait((0, 1, rec_b, warm, rec, hs))
                     task_count += 1
 
             task_count -= 1
@@ -172,20 +176,22 @@ class RectangleSplittingManager(object):
                 task_count += 1
                 zi = init_recs[i]
                 zj = init_recs[i+1]
+                hs = [zi.hash, zj.hash]
                 warm = [zi.warm_start, zj.warm_start]
                 rec = [zi.objs, zj.objs]
                 rec_b = 0.5*(rec[0][1]+rec[1][1])
-                self.task_q.put_nowait((0, 1, rec_b, warm, rec))
+                self.task_q.put_nowait((0, 1, rec_b, warm, rec, hs))
         else:
             task_count += 2
             #init problems to solve
-            self.task_q.put_nowait((0, 1, cplex.infinity, [None, None], ((None, None), (None, None))))
-            self.task_q.put_nowait((1, 0, cplex.infinity, [None, None], ((None, None), (None, None))))
+            self.task_q.put_nowait((0, 1, cplex.infinity, [None, None], ((None, None), (None, None)), [tuple(), tuple()]))
+            self.task_q.put_nowait((1, 0, cplex.infinity, [None, None], ((None, None), (None, None)), [tuple(), tuple()]))
 
             self.task_q.join()
 
             init_rect = [None, None]
             warm = [None, None]
+            hashs = [None, None]
             while task_count:
                 pos, sol, warmstart, origin_rect = self.done_q.get()
 
@@ -195,14 +201,15 @@ class RectangleSplittingManager(object):
                 heapq.heappush(self.solutions, sol)
                 init_rect[pos] = sol.objs
                 warm[pos] = warmstart[pos]
+                hashs[pos] = sol.hash
             init_rect = tuple(init_rect)
             rec_b = 0.5*(init_rect[0][1]+init_rect[1][1])
             task_count += 1
-            self.task_q.put_nowait((0, 1, rec_b, warm, init_rect))
+            self.task_q.put_nowait((0, 1, rec_b, warm, init_rect, hashs))
 
         while task_count > 0:
 
-            pos, sol, warm, origin_rect = self.done_q.get()
+            pos, sol, warm, origin_rect, has = self.done_q.get()
             print
             print
             print "Current Rectangle ", origin_rect
@@ -212,11 +219,12 @@ class RectangleSplittingManager(object):
             #lexmin2
             if pos:
                 #print "lexmin2", pos
-                if not numpy.allclose(sol.objs, origin_rect[0], rtol=1e-01, atol=1e-04):
+                if sol.hash != has[0]:
                     rec = (origin_rect[0], sol.objs)
                     heapq.heappush(self.solutions, sol)
                     rec_b = 0.5*(rec[0][1]+rec[1][1])
-                    self.task_q.put_nowait((0, 1, rec_b, warm, rec))
+                    hs = [has[0], sol.hash]
+                    self.task_q.put_nowait((0, 1, rec_b, warm, rec, hs))
                     task_count += 1
 
                     if origin_rect in proof_not_empty_rec:
@@ -237,14 +245,15 @@ class RectangleSplittingManager(object):
             else:
                 #print "lexmin1 ",pos
                 rec_t = sol.objs[0]-BiobjectiveSolver.EPS
-                self.task_q.put_nowait((1, 0, rec_t, warm, origin_rect))
+                self.task_q.put_nowait((1, 0, rec_t, warm, origin_rect, has))
                 task_count += 1
 
-                if not numpy.allclose(sol.objs, origin_rect[1], rtol=1e-01, atol=1e-04):
+                if sol.hash != has[1]:
                     rec = (sol.objs, origin_rect[1])
                     rec_b = 0.5*(rec[0][1]+rec[1][1])
+                    hs = [sol.hash, has[1]]
                     heapq.heappush(self.solutions, sol)
-                    self.task_q.put_nowait((0, 1, rec_b, warm, rec))
+                    self.task_q.put_nowait((0, 1, rec_b, warm, rec, hs))
                     task_count += 1
                     if origin_rect in proof_not_empty_rec:
                         empty_rect.add((proof_not_empty_rec[origin_rect], sol.objs))
@@ -277,77 +286,7 @@ class RectangleSplittingManager(object):
         #print "Empty rectangles: ", empty_rect
         #actually all worke is done terminate normally
         for _ in xrange(len(self.worker)):
-            self.task_q.put_nowait(["DONE", None, None, None, None])
-        self.task_q.close()
-        self.task_q.join()
-        for p in self.worker:
-            print "shut down worker ", p.pid
-            p.join()
-
-        return self.solutions
-
-
-class RectangleSplittingManagerDirectSplit(RectangleSplittingManager):
-    '''
-        a version of the splitter in which it is not waiting for lexmin_z1 to finish before lexmin_z2 starts
-    '''
-
-    def solve(self):
-        task_count = 2
-
-        #init problems to solve
-        self.task_q.put_nowait((0, 1, cplex.infinity, None, ((None, None), (None, None))))
-        self.task_q.put_nowait((1, 0, cplex.infinity, None, ((None, None), (None, None))))
-
-        self.task_q.join()
-
-
-        b = [None, None]
-        warm = [None, None]
-        while not self.done_q.empty():
-            pos, sol, warmstart, origin_rect = self.done_q.get()
-            self.solutions.append(sol)
-            b[pos] = sol.objs
-            warm[pos] = warmstart
-
-        rec_b = 0.5*(b[0][1]+b[1][1])
-        rec_t = b[1][0]-BiobjectiveSolver.EPS
-        self.task_q.put_nowait((0, 1, rec_b, warm[1], b))
-        self.task_q.put_nowait((1,0,rec_t, warm[0], b))
-
-        while task_count > 0:
-            pos, sol, warmstart, origin_rect = self.done_q.get()
-            print "Current Rectangle ", origin_rect
-            print "Solution: ", sol
-            #print "Solutions ", self.solutions
-
-            #lexmin2
-            if pos:
-                print "lexmin2", pos
-                if not numpy.allclose(sol.objs, origin_rect[0]):
-                    rec = (origin_rect[0], sol.objs)
-                    self.solutions.append(sol)
-                    rec_b = 0.5*(rec[0][1]+rec[1][1])
-                    rec_t = rec[1][0]-BiobjectiveSolver.EPS
-                    self.task_q.put_nowait((0, 1, rec_b, warmstart, rec))
-                    self.task_q.put_nowait((1,0,rec_t, warmstart, rec))
-                    task_count +=2
-            else:
-                if not numpy.allclose(sol.objs, origin_rect[1]):
-                    rec = (sol.objs, origin_rect[1])
-                    rec_b = 0.5*(rec[0][1]+rec[1][1])
-                    rec_t = rec[1][0]-BiobjectiveSolver.EPS
-                    self.solutions.append(sol)
-                    self.task_q.put_nowait((0, 1, rec_b, warmstart, rec))
-                    self.task_q.put_nowait((1,0,rec_t, warmstart, rec))
-                    task_count += 2
-
-            task_count -= 1
-            print "Tasks still running: ", task_count
-
-        #all work done send exit signal
-        for _ in xrange(len(self.worker)):
-            self.task_q.put_nowait(["DONE", None, None, None, None])
+            self.task_q.put_nowait(["DONE", None, None, None, None, None])
         self.task_q.close()
         self.task_q.join()
         for p in self.worker:

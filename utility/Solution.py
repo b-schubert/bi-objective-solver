@@ -13,12 +13,13 @@ class Solution(object):
         self.objs = tuple(objs)
         self.vars = vars
         self.warm_start = warmstart
-
+        self.hash = tuple(x[-2] for x in sorted(filter(lambda x: "x(" in x,self.vars.iterkeys()),
+                                                key=lambda a: int(a[2])))
     def __eq__(self, solution):
         """
             compare function with other solution
         """
-        return numpy.allclose(self.objs, solution.objs, rtol=1e-01, atol=1e-01)
+        return numpy.allclose(self.objs, solution.objs, rtol=1e-01, atol=1e-04)
 
     def __lt__(self, solution):
         """
@@ -31,3 +32,6 @@ class Solution(object):
 
     def __repr__(self):
         return str(self.objs)
+
+    def __hash__(self):
+        return  self.hash

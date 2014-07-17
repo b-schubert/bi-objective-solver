@@ -79,15 +79,15 @@ class RectangleSplittingWorker(mp.Process):
 
     def run(self):
         while True:
-            z1_idx, z2_idx, boundary, warmst, rectangle = self.task_q.get()
+            z1_idx, z2_idx, boundary, warmst, rectangle, hashs = self.task_q.get()
             if z1_idx == "DONE":
                 self.task_q.task_done()
                 break
             if z1_idx:
                 sol, warm = self._lexmin(z1_idx, z2_idx, boundary,  warmstart=warmst[0], effort_level=0)
-                self.done_q.put((z1_idx, sol, [warmst[0], warm], rectangle))
+                self.done_q.put((z1_idx, sol, [warmst[0], warm], rectangle, hashs))
             else:
                 sol, warm = self._lexmin(z1_idx, z2_idx, boundary,  warmstart=warmst[1], effort_level=0)
-                self.done_q.put((z1_idx, sol, [warm, warmst[1]], rectangle))
+                self.done_q.put((z1_idx, sol, [warm, warmst[1]], rectangle, hashs))
             self.task_q.task_done()
 

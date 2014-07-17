@@ -122,7 +122,6 @@ class RectangleSplittingWorker(object):
                 sol, warm = self._lexmin(z1_idx, z2_idx, boundary,  warmstart=warmst[1], effort_level=0)
                 self.done_q.put((z1_idx, sol, [warm, warmst[1]], rectangle))
             self.task_q.task_done()
-        self.manager.shutdown()
 
 
 if __name__ == "__main__":
@@ -147,12 +146,12 @@ if __name__ == "__main__":
                       )
     parser.add_argument('--constraints','-c',
                       required=True,
-		      nargs=2,
+                      nargs=2,
                       help="Constraints"
                       )
     parser.add_argument('--variables','-v',
                       required=True,
-		      nargs="+",
+                      nargs="+",
                       help="interesting variables"
                       )
     parser.add_argument('--hasconst','-hc',

@@ -1,11 +1,8 @@
 from __future__ import division
 import cplex
-import numpy
-import itertools
+
 
 import multiprocessing as mp
-
-from cplex.exceptions import CplexError
 
 from concurrent.epsilon_grid_worker import EpsilonGridWorker
 from concurrent.rectangle_worker import RectangleSplittingWorker
@@ -72,7 +69,7 @@ class EpsilonGridManager(object):
             if constraints is None:
                 p = EpsilonGridWorker(z1, z2, inter_vars, self.task_q, self.done_q)
             else:
-                p = EpsilonGridWorker(z1, z2, inter_vars, self.task_q, self.done_q,constraints=cons)
+                p = EpsilonGridWorker(z1, z2, inter_vars, self.task_q, self.done_q, constraints=cons)
             p.deamon = True
             self.worker.append(p)
             p.start()
@@ -81,8 +78,8 @@ class EpsilonGridManager(object):
 
         nof_sol = len(self.worker) if nof_sol is None else nof_sol
         #init problems to solve
-        self.task_utopian_q.put((0, 1, cplex.infinity, [None, None], ((None, None), (None, None))))
-        self.task_utopian_q.put((1, 0, cplex.infinity, [None, None], ((None, None), (None, None))))
+        self.task_utopian_q.put((0, 1, cplex.infinity, [None, None], ((None, None), (None, None)), [tuple(), tuple()]))
+        self.task_utopian_q.put((1, 0, cplex.infinity, [None, None], ((None, None), (None, None)), [tuple(), tuple()]))
 
         self.task_utopian_q.join()
 
@@ -95,9 +92,9 @@ class EpsilonGridManager(object):
             b[pos] = sol.objs
             warm[pos] = warmstart[pos]
 
-        delta = 1/(nof_sol - 1)
+        delta = 1/nof_sol
         diff = b[1][1] - b[0][1]
-        alphas = [delta*i*diff for i in xrange(1, nof_sol - 1)]
+        alphas = [delta*i*diff for i in xrange(1, nof_sol)]
 
         for i in xrange(nof_sol - 2):
             print "Bounds: ", b[0][1]+alphas[i]
