@@ -432,7 +432,7 @@ class RectangleEpsilonGridManager(object):
         for s in sols:
             print s
 
-        pcl.dump(sols, open("/home-link/zxmqy30/deimmunization/output/intermediat_k3_epsilon_grid.pcl","w"))
+        pcl.dump(sols, open("./intermediat_k3_epsilon_grid.pcl","w"))
         curr_gap = HyperVolume.calc_hypervol_gap(sols, [sols[0].objs, sols[-1].objs], [])
         if numpy.allclose(gap, curr_gap, rtol=1e-03, atol=1e-04) or curr_gap < gap:
             return sols
